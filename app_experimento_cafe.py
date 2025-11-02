@@ -419,33 +419,33 @@ elif pagina == "🧪 Pruebas":
             ci_lo, ci_hi = r["IC 95 % inferior"], r["IC 95 % superior"]
             p_adj = r["p-valor ajustado (Holm)"]
 
-            # nombres legibles (quita guiones bajos)
+            # nombres legibles
             na = a.replace("_", " ")
             nb = b.replace("_", " ")
 
-            # texto según el signo
+            # definir sentido
             if diff > 0:
-                verbo = "más que"
+                comparacion = f"**{na} obtuvo en promedio {abs(diff):.2f} puntos más que {nb}**."
             elif diff < 0:
-                verbo = "menos que"
+                comparacion = f"**{na} obtuvo en promedio {abs(diff):.2f} puntos menos que {nb}**."
             else:
-                verbo = "igual que"
+                comparacion = f"**{na} y {nb} obtuvieron promedios iguales**."
 
+            # mensaje explicativo
             st.markdown(
-                f"**{na}** obtuvo en promedio **{abs(diff):.2f} puntos {verbo} {nb}** "
-                f"(IC 95 % [{ci_lo:.2f}, {ci_hi:.2f}], p(Holm) = {p_adj:.4f})."
+                f"{comparacion} "
+                f"Esto significa que la diferencia observada entre ambos cafés es de **{abs(diff):.2f} puntos**.\n\n"
+                f"El intervalo de confianza al 95 % va de **{ci_lo:.2f}** a **{ci_hi:.2f}**, "
+                f"lo que indica que, si repitiésemos el experimento muchas veces, "
+                f"la verdadera diferencia estaría probablemente dentro de ese rango.\n\n"
+                f"El valor de **p(Holm) = {p_adj:.4f}**, "
+                f"que corrige por las múltiples comparaciones, sugiere que esta diferencia "
+                f"{'es **estadísticamente significativa** (p < 0.05)' if p_adj < 0.05 else 'no es significativa (p ≥ 0.05)'}."
             )
 
-    st.markdown("---")
-    st.subheader("Resumen de marcas")
-
-    # 1) Ranking de medias (más fácil de leer)
-    medias = df.groupby("tipo_cafe")[atr_sel].mean().sort_values(ascending=False)
-    st.markdown("**🏆 Ranking de medias**")
-    for i, (marca, val) in enumerate(medias.items(), start=1):
-        st.markdown(f"{i}. **{marca}** — {val:.2f}")
 
     st.markdown("---")
+   
 
 
 

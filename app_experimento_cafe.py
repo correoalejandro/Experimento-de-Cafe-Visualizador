@@ -7,6 +7,7 @@ import io
 import re
 from pathlib import Path
 import altair as alt
+from scipy.stats import levene, shapiro
 
 st.set_page_config(page_title="Experimento Sensorial de Café", layout="wide")
 
@@ -293,9 +294,24 @@ elif pagina == "🧪 Pruebas":
         for rank, idx in enumerate(orden, start=1):
             ajust[idx] = min((m - rank + 1) * pvals[idx], 1.0)
         return ajust
+    # --- PRUEBAS DE SUPUESTOS BÁSICOS ---
+    from scipy.stats import levene, shapiro
 
+    st.markdown("### ⚙️ Pruebas de supuestos")
+
+    for atr in ATR:
+        grupos = [g[atr].dropna() for _, g in df.groupby("tipo_cafe")]
+        if all(len(g) > 2 for g in grupos):
+            stat_lev, p_lev = levene(*grupos)
+            stat_sh, p_sh = shapiro(df[atr].dropna())
+            st.write(f"**{atr.capitalize()}** — Levene p = {p_lev:.3f}, Shapiro p = {p_sh:.3f}")
+        else:
+            st.info(f"No hay suficientes datos para {atr}.")
+        
+        
+        
     # ---- construir resultados ----
-        # ---- construir resultados (todo con nombres legibles) ----
+       
     resultados = []
     if diseño.startswith("Entre"):
         for atr in ATR:

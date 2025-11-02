@@ -246,6 +246,11 @@ elif pagina == "📊 Exploración":
         )
         st.altair_chart(chart, use_container_width=True)
 
+    # --- Distribución demográfica ---
+    st.markdown("### 👥 Distribución por edad y sexo")
+    tabla_demo = df.groupby(["grupo_edad", "sexo"]).size().reset_index(name="Conteo")
+    st.dataframe(tabla_demo, use_container_width=True)
+    st.bar_chart(df.groupby("sexo")["participante_id"].nunique())
 
 # =============================
 # 🧪 Pruebas
@@ -457,7 +462,19 @@ elif pagina == "🧪 Pruebas":
                 f"que corrige por las múltiples comparaciones, sugiere que esta diferencia "
                 f"{'es **estadísticamente significativa** (p < 0.05)' if p_adj < 0.05 else 'no es significativa (p ≥ 0.05)'}."
             )
-
+    
+    st.markdown("---")
+   
+    # --- Comparaciones por sexo ---
+    st.markdown("### ⚖️ Comparaciones por sexo")
+    for atr in ATR:
+        for cafe in df["tipo_cafe"].dropna().unique():
+            sub = df[df["tipo_cafe"] == cafe]
+            gM = sub[sub["sexo"].str.upper() == "M"][atr].dropna()
+            gF = sub[sub["sexo"].str.upper() == "F"][atr].dropna()
+            if len(gM) > 2 and len(gF) > 2:
+                tval, pval = stats.ttest_ind(gM, gF, equal_var=False)
+                st.write(f"{atr.capitalize()} ({cafe}) → t = {tval:.2f}, p = {pval:.3f}")
 
     st.markdown("---")
    

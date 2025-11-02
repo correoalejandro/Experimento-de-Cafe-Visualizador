@@ -5,6 +5,7 @@ import numpy as np
 from scipy import stats
 import io
 import re
+from pathlib import Path
 import altair as alt
 
 st.set_page_config(page_title="Experimento Sensorial de Café", layout="wide")
@@ -16,7 +17,8 @@ st.sidebar.title("☕ Experimento de Café")
 st.sidebar.caption("Carga de datos, opciones y navegación")
 
 # Archivo por defecto y carga
-ARCHIVO_POR_DEFECTO = "MuestreoCafe.csv"
+BASE_DIR = Path(__file__).resolve().parent
+ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe.csv"
 archivo = st.sidebar.file_uploader("Sube tu CSV", type=["csv"])
 ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
 
@@ -46,12 +48,39 @@ ALIAS_PATTERNS = {
 
 ATRIBUTOS = ["olor", "sabor", "acidez"]
 
+
+def _leer_csv_desde_path(path: Path) -> pd.DataFrame:
+    """Lee un CSV intentando diferentes configuraciones de codificación."""
+    try:
+        return pd.read_csv(path, sep=None, engine="python", encoding="utf-8-sig")
+    except Exception:
+        return pd.read_csv(path, sep=None, engine="python", encoding="utf-8")
+
+
 def leer_csv_flexible(file_like_or_path):
-    if isinstance(file_like_or_path, (str, bytes)) and file_like_or_path:
-        try:
-            return pd.read_csv(file_like_or_path, sep=None, engine="python", encoding="utf-8-sig")
-        except Exception:
-            return pd.read_csv(file_like_or_path, sep=None, engine="python", encoding="utf-8")
+    path_candidate = None
+
+    if isinstance(file_like_or_path, Path):
+        path_candidate = file_like_or_path
+    elif isinstance(file_like_or_path, str):
+        candidate = file_like_or_path.strip()
+        if candidate:
+            path_candidate = Path(candidate).expanduser()
+
+    if path_candidate is not None:
+        posibles_rutas = []
+        if path_candidate.is_absolute():
+            posibles_rutas.append(path_candidate)
+        else:
+            posibles_rutas.append(Path.cwd() / path_candidate)
+            posibles_rutas.append(BASE_DIR / path_candidate)
+
+        for ruta in posibles_rutas:
+            if ruta.is_file():
+                return _leer_csv_desde_path(ruta)
+
+        raise FileNotFoundError(f"No se encontró el archivo especificado: {path_candidate}")
+
     elif file_like_or_path is not None:
         # UploadedFile → buffer
         data = file_like_or_path.read()
@@ -63,10 +92,11 @@ def leer_csv_flexible(file_like_or_path):
             return pd.read_csv(buf, sep=None, engine="python", encoding="utf-8")
     else:
         # Intentar por defecto
-        try:
-            return pd.read_csv(ARCHIVO_POR_DEFECTO, sep=None, engine="python", encoding="utf-8-sig")
-        except Exception:
-            return pd.read_csv(ARCHIVO_POR_DEFECTO, sep=None, engine="python", encoding="utf-8")
+        if not ARCHIVO_POR_DEFECTO.is_file():
+            raise FileNotFoundError(
+                f"No se encontró el archivo por defecto en {ARCHIVO_POR_DEFECTO}."
+            )
+        return _leer_csv_desde_path(ARCHIVO_POR_DEFECTO)
 
 def aplicar_mapeo(df: pd.DataFrame) -> pd.DataFrame:
     ren = {k: v for k, v in MAPEO_COLUMNAS.items() if k in df.columns}
@@ -112,8 +142,15 @@ pagina = st.sidebar.radio(
 )
 
 # ===== Carga de datos
+entrada_usuario = archivo if archivo is not None else (ruta_manual.strip() or None)
+
+if entrada_usuario is None:
+    st.sidebar.caption(
+        f"Usando archivo por defecto: `{ARCHIVO_POR_DEFECTO.name}` incluido en la app."
+    )
+
 try:
-    df = leer_csv_flexible(archivo or ruta_manual)
+    df = leer_csv_flexible(entrada_usuario)
 except Exception as e:
     st.error(f"No se pudo leer el CSV: {e}")
     st.stop()

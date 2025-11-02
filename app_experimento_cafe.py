@@ -183,10 +183,41 @@ elif pagina == "📊 Exploración":
 # 🧪 Pruebas
 # =============================
 elif pagina == "🧪 Pruebas":
+    import altair as alt
     st.title("🧪 Pruebas de hipótesis")
     diseño = st.radio("Selecciona diseño", ["Entre-sujetos (Welch)", "Intra-sujetos (apareado)"], horizontal=True)
     marcas = sorted(df["tipo_cafe"].dropna().unique().tolist())
     ATR = st.multiselect("Atributos a probar", ATRIBUTOS, default=ATRIBUTOS)
+
+    # ---- utilidades efecto y CI ----
+    import numpy as np
+    from scipy import stats
+
+    def hedges_g_ind(a, b):
+        """Hedges g para grupos independientes (aprox. aun con varianzas desiguales)."""
+        na, nb = len(a), len(b)
+        sa2, sb2 = np.var(a, ddof=1), np.var(b, ddof=1)
+        sp = np.sqrt(((na-1)*sa2 + (nb-1)*sb2) / (na+nb-2)) if (na+nb-2)>0 else np.nan
+        d = (np.mean(a) - np.mean(b)) / sp if sp>0 else np.nan
+        # corrección de Hedges
+        J = 1 - 3/(4*(na+nb)-9) if (na+nb)>2 else 1.0
+        return d*J
+
+    def welch_df(sa2, na, sb2, nb):
+        num = (sa2/na + sb2/nb)**2
+        den = (sa2**2 / (na**2*(na-1))) + (sb2**2 / (nb**2*(nb-1)))
+        return num/den
+
+    def welch_ci(a, b, alpha=0.05):
+        """IC para diferencia de medias (A-B) con Welch."""
+        na, nb = len(a), len(b)
+        ma, mb = np.mean(a), np.mean(b)
+        sa2, sb2 = np.var(a, ddof=1), np.var(b, ddof=1)
+        se = np.sqrt(sa2/na + sb2/nb)
+        dfw = welch_df(sa2, na, sb2, nb)
+        tcrit = stats.t.ppf(1 - alpha/2, dfw)
+        diff = ma - mb
+        return diff, (diff - tcrit*se, diff + tcrit*se), dfw, se
 
     def holm(pvals: np.ndarray) -> np.ndarray:
         orden = np.argsort(pvals)
@@ -196,9 +227,9 @@ elif pagina == "🧪 Pruebas":
             ajust[idx] = min((m - rank + 1) * pvals[idx], 1.0)
         return ajust
 
+    # ---- construir resultados ----
     resultados = []
     if diseño.startswith("Entre"):
-        # t de Welch (grupos independientes)
         for atr in ATR:
             for i in range(len(marcas)):
                 for j in range(i+1, len(marcas)):
@@ -208,13 +239,21 @@ elif pagina == "🧪 Pruebas":
                     if len(A) < 2 or len(B) < 2:
                         continue
                     tval, pval = stats.ttest_ind(A, B, equal_var=False, nan_policy="omit")
-                    resultados.append([atr, a, b, len(A), len(B), float(A.mean()-B.mean()), float(tval), float(pval)])
-        cols = ["atributo","cafe_a","cafe_b","n_a","n_b","dif_media_a_menos_b","t","p"]
+                    diff, ci, dfw, se = welch_ci(A, B)
+                    g = hedges_g_ind(A, B)
+                    resultados.append({
+                        "atributo": atr, "cafe_a": a, "cafe_b": b,
+                        "n_a": int(len(A)), "n_b": int(len(B)),
+                        "dif_media_a_menos_b": float(diff),
+                        "ci95_inf": float(ci[0]), "ci95_sup": float(ci[1]),
+                        "t": float(tval), "gl_welch": float(dfw), "p": float(pval),
+                        "hedges_g": float(g)
+                    })
+        cols = ["atributo","cafe_a","cafe_b","n_a","n_b","dif_media_a_menos_b","ci95_inf","ci95_sup","t","gl_welch","p","hedges_g"]
     else:
         # apareado por participante
-        pivots = {atr: df.pivot_table(index="participante_id", columns="tipo_cafe", values=atr, aggfunc="first") for atr in ATR}
         for atr in ATR:
-            P = pivots[atr]
+            P = df.pivot_table(index="participante_id", columns="tipo_cafe", values=atr, aggfunc="first")
             marcas_loc = [m for m in marcas if m in P.columns]
             for i in range(len(marcas_loc)):
                 for j in range(i+1, len(marcas_loc)):
@@ -224,23 +263,85 @@ elif pagina == "🧪 Pruebas":
                         continue
                     tval, pval = stats.ttest_rel(sub[a].values, sub[b].values, nan_policy="omit")
                     diff = float(np.nanmean(sub[a].values - sub[b].values))
-                    resultados.append([atr, a, b, int(len(sub)), diff, float(tval), float(pval)])
-        cols = ["atributo","cafe_a","cafe_b","n_parejas","dif_media_a_menos_b","t","p"]
+                    # IC pareado
+                    d = sub[a].values - sub[b].values
+                    se = stats.sem(d, nan_policy="omit")
+                    tcrit = stats.t.ppf(0.975, df=len(d)-1)
+                    ci = (diff - tcrit*se, diff + tcrit*se)
+                    resultados.append({
+                        "atributo": atr, "cafe_a": a, "cafe_b": b,
+                        "n_parejas": int(len(sub)),
+                        "dif_media_a_menos_b": float(diff),
+                        "ci95_inf": float(ci[0]), "ci95_sup": float(ci[1]),
+                        "t": float(tval), "gl": int(len(sub)-1), "p": float(pval),
+                        "hedges_g": np.nan  # opcional en apareado
+                    })
+        cols = ["atributo","cafe_a","cafe_b","n_parejas","dif_media_a_menos_b","ci95_inf","ci95_sup","t","gl","p","hedges_g"]
 
-    if resultados:
-        tabla = pd.DataFrame(resultados, columns=cols)
-        # Holm por atributo
-        tablas = []
-        for atr, sub in tabla.groupby("atributo"):
-            sub = sub.copy()
-            sub["p_holm"] = holm(sub["p"].values)
-            sub["sig_0_05_holm"] = sub["p_holm"] < 0.05
-            tablas.append(sub)
-        tabla = pd.concat(tablas, ignore_index=True).sort_values(["atributo","p_holm","p"])
-        st.subheader("Resultados")
-        st.dataframe(tabla, use_container_width=True)
-    else:
-        st.info("No hay pares comparables suficientes con la configuración actual.")
+    if not resultados:
+        st.info("No hay comparaciones posibles con la configuración actual.")
+        st.stop()
+
+    tabla = pd.DataFrame(resultados, columns=cols)
+
+    # Holm por atributo
+    tablas = []
+    for atr, sub in tabla.groupby("atributo", as_index=False):
+        sub = sub.copy()
+        sub["p_holm"] = holm(sub["p"].values)
+        sub["sig_0_05_holm"] = sub["p_holm"] < 0.05
+        tablas.append(sub)
+    tabla = pd.concat(tablas, ignore_index=True).sort_values(["atributo","p_holm","p"])
+
+    # ===== Layout compacto y legible =====
+    st.subheader("Resultados (resumen)")
+    st.dataframe(
+        tabla[["atributo","cafe_a","cafe_b",
+            *(["n_a","n_b"] if diseño.startswith("Entre") else ["n_parejas"]),
+            "dif_media_a_menos_b","ci95_inf","ci95_sup","p_holm","sig_0_05_holm","hedges_g"]],
+        use_container_width=True
+    )
+
+    st.markdown("---")
+    st.subheader("Interpretación simple")
+    atr_sel = st.selectbox("Atributo", ATR, index=0)
+    filas = tabla[tabla["atributo"]==atr_sel].reset_index(drop=True)
+
+    if not filas.empty:
+        fila = filas.iloc[0]
+        a, b = fila["cafe_a"], fila["cafe_b"]
+        diff = fila["dif_media_a_menos_b"]
+        ci_lo, ci_hi = fila["ci95_inf"], fila["ci95_sup"]
+        p_adj = fila["p_holm"]
+        g = fila["hedges_g"]
+        sentido = "mayor" if diff>0 else ("menor" if diff<0 else "igual")
+        st.markdown(f"""
+        **{atr_sel.capitalize()}**  
+        • En promedio, **{a}** tiene un valor {sentido} que **{b}** por **{abs(diff):.2f} puntos**.  
+        • **IC 95%**: [{ci_lo:.2f}, {ci_hi:.2f}].  
+        • **p (Holm)** = {p_adj:.4f} {'✅ significativo' if p_adj<0.05 else '➖ no significativo'}.  
+        • **Tamaño del efecto (Hedges g)**: {g:.2f} (≈ 0.2 pequeño, 0.5 mediano, 0.8 grande).
+        """)
+
+        import altair as alt
+        agg = df.groupby("tipo_cafe")[atr_sel].agg(["mean","count","std"]).reset_index()
+        agg["se"] = agg["std"]/np.sqrt(agg["count"])
+        z = stats.t.ppf(0.975, df=max(2, int(min(agg["count"])-1)))
+        agg["lo"] = agg["mean"] - z*agg["se"]
+        agg["hi"] = agg["mean"] + z*agg["se"]
+
+        chart = (
+            alt.Chart(agg)
+            .mark_point(size=80)
+            .encode(x=alt.X("tipo_cafe:N", title="Marca"),
+                    y=alt.Y("mean:Q", title=f"Media de {atr_sel}"))
+            .properties(width=600, height=350)
+        ) + (
+            alt.Chart(agg)
+            .mark_errorbar()
+            .encode(x="tipo_cafe:N", y="lo:Q", y2="hi:Q")
+        )
+        st.altair_chart(chart, use_container_width=True)
 
 # =============================
 # ⚙️ Ayuda

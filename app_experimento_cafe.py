@@ -20,7 +20,7 @@ st.sidebar.caption("Opciones y navegación")
 # ===== Navegación
 pagina = st.sidebar.radio(
     "Ir a:",
-    ["Inicio", " Exploración", " Pruebas", " Ayuda"]
+    ["🏠 Inicio", " Exploración", " Pruebas", " Ayuda"]
 )
 
 

@@ -341,44 +341,34 @@ elif pagina == "🧪 Pruebas":
 
     st.markdown("---")
     st.subheader("Interpretación simple")
-    atr_sel = st.selectbox("Atributo", ATR, index=0)
-    filas = tabla[tabla["atributo"]==atr_sel].reset_index(drop=True)
+    
+    atr_sel = st.selectbox("Atributo", ATR, index=0, key="atr_interp")
+    solo_sig = st.checkbox("Mostrar solo comparaciones significativas (Holm < 0.05)", value=False)
+    orden = st.radio("Ordenar por", ["p_holm", "dif_media_abs"], index=0, horizontal=True)
 
-    if not filas.empty:
-        fila = filas.iloc[0]
-        a, b = fila["cafe_a"], fila["cafe_b"]
-        diff = fila["dif_media_a_menos_b"]
-        ci_lo, ci_hi = fila["ci95_inf"], fila["ci95_sup"]
-        p_adj = fila["p_holm"]
-        g = fila["hedges_g"]
-        sentido = "mayor" if diff>0 else ("menor" if diff<0 else "igual")
-        st.markdown(f"""
-        **{atr_sel.capitalize()}**  
-        • En promedio, **{a}** tiene un valor {sentido} que **{b}** por **{abs(diff):.2f} puntos**.  
-        • **IC 95%**: [{ci_lo:.2f}, {ci_hi:.2f}].  
-        • **p (Holm)** = {p_adj:.4f} {'✅ significativo' if p_adj<0.05 else '➖ no significativo'}.  
-        • **Tamaño del efecto (Hedges g)**: {g:.2f} (≈ 0.2 pequeño, 0.5 mediano, 0.8 grande).
-        """)
+    filas = tabla[tabla["atributo"] == atr_sel].copy()
+    filas["dif_media_abs"] = filas["dif_media_a_menos_b"].abs()
+    if solo_sig:
+        filas = filas[filas["p_holm"] < 0.05]
+    filas = filas.sort_values(orden if orden != "dif_media_abs" else ["dif_media_abs"], ascending=True)
 
-        import altair as alt
-        agg = df.groupby("tipo_cafe")[atr_sel].agg(["mean","count","std"]).reset_index()
-        agg["se"] = agg["std"]/np.sqrt(agg["count"])
-        z = stats.t.ppf(0.975, df=max(2, int(min(agg["count"])-1)))
-        agg["lo"] = agg["mean"] - z*agg["se"]
-        agg["hi"] = agg["mean"] + z*agg["se"]
+    if filas.empty:
+        st.info("No hay comparaciones que mostrar con los filtros actuales.")
+    else:
+        for _, r in filas.iterrows():
+            a, b = r["cafe_a"], r["cafe_b"]
+            diff  = r["dif_media_a_menos_b"]
+            ci_lo, ci_hi = r["ci95_inf"], r["ci95_sup"]
+            p_adj = r["p_holm"]
+            g = r.get("hedges_g", np.nan)
+            sentido = "mayor" if diff > 0 else ("menor" if diff < 0 else "igual")
+            efecto_txt = "" if (isinstance(g, float) and np.isnan(g)) else f", g={g:.2f}"
+            st.markdown(
+                f"- **{atr_sel.capitalize()}**: **{a}** es {sentido} que **{b}** por **{abs(diff):.2f}** "
+                f"(IC95% [{ci_lo:.2f}, {ci_hi:.2f}], p(Holm)={p_adj:.4f}"
+                f"{' ✅' if p_adj < 0.05 else ''}{efecto_txt})."
+            )
 
-        chart = (
-            alt.Chart(agg)
-            .mark_point(size=80)
-            .encode(x=alt.X("tipo_cafe:N", title="Marca"),
-                    y=alt.Y("mean:Q", title=f"Media de {atr_sel}"))
-            .properties(width=600, height=350)
-        ) + (
-            alt.Chart(agg)
-            .mark_errorbar()
-            .encode(x="tipo_cafe:N", y="lo:Q", y2="hi:Q")
-        )
-        st.altair_chart(chart, use_container_width=True)
 
 # =============================
 # ⚙️ Ayuda

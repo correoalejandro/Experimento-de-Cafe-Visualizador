@@ -38,9 +38,11 @@ if ARCHIVO_POR_DEFECTO.is_file():
         ""
     )
 
+
+'''
 archivo = st.sidebar.file_uploader("", type=["csv"])
 ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
-
+'''
 
 # Mapeo de encabezados → nombres canónicos
 # Ajusta a tus nombres reales de columnas (ya configurado para tu CSV)

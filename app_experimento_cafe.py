@@ -315,7 +315,8 @@ elif pagina == "🧪 Pruebas":
                         "t": float(tval), "gl_welch": float(dfw), "p": float(pval),
                         "hedges_g": float(g)
                     })
-        cols = ["atributo","cafe_a","cafe_b","n_a","n_b","dif_media_a_menos_b","ci95_inf","ci95_sup","t","gl_welch","p","hedges_g"]
+        cols = ["Atributo sensorial","Café A","Café B","Participantes","Diferencia de medias (A−B)","IC 95 % inferior","IC 95 % superior","Estadístico t","gl","p-valor","Tamaño del efecto (Hedges g)"]
+
     else:
         # apareado por participante
         for atr in ATR:

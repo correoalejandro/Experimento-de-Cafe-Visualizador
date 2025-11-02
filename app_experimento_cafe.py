@@ -229,22 +229,35 @@ elif pagina == " Exploración":
 
     st.markdown("---")
     st.subheader("Distribuciones por marca")
-    seleccion = st.multiselect("Marcas a comparar", marcas, default=marcas)
-    
 
+    # 1️⃣ Selector de atributo y marcas
+    atributo = st.selectbox(
+        "Selecciona el atributo a visualizar",
+        ["olor", "sabor", "acidez"],
+        index=0
+    )
+
+    marcas = sorted(df["tipo_cafe"].dropna().unique().tolist())
+    seleccion = st.multiselect("Marcas a comparar", marcas, default=marcas)
+
+    # 2️⃣ Generar boxplot dinámico
     if seleccion:
-        subset = df[df["tipo_cafe"].isin(seleccion)][["tipo_cafe", atr]].dropna()
+        subset = df[df["tipo_cafe"].isin(seleccion)][["tipo_cafe", atributo]].dropna()
+
+        import altair as alt
         chart = (
             alt.Chart(subset)
             .mark_boxplot(size=40)
             .encode(
                 x=alt.X("tipo_cafe:N", title="Marca de café"),
-                y=alt.Y(f"{atr}:Q", title=f"Puntuación de {atr}"),
+                y=alt.Y(f"{atributo}:Q", title=f"Puntuación de {atributo}"),
                 color="tipo_cafe:N"
             )
             .properties(width=600, height=400)
         )
         st.altair_chart(chart, use_container_width=True)
+    else:
+        st.info("Selecciona al menos una marca para mostrar el gráfico.")
 
     # --- Distribución demográfica ---
     # --- Boxplots de edad (general y por sexo) ---

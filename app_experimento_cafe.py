@@ -423,9 +423,10 @@ elif pagina == "🧪 Pruebas":
             ci_lo, ci_hi = r["IC 95 % inferior"], r["IC 95 % superior"]
             arrow = "→" if diff > 0 else "←"
             st.markdown(
-                f"- **{a} {arrow} {b}**: Δ = **{abs(diff):.2f}** "
-                f"(IC95% [{ci_lo:.2f}, {ci_hi:.2f}]; p(Holm) = {r['p-valor ajustado (Holm)']:.4f})"
+                f"**{a.replace('_',' ')}** obtuvo en promedio **{diff:.2f} puntos más que {b.replace('_',' ')}** "
+                f"(IC 95 % [{ci_lo:.2f}, {ci_hi:.2f}], p(Holm) = {r['p-valor ajustado (Holm)']:.4f})."
             )
+
 
     with st.expander("Ver todas las comparaciones (completo)"):
         todas = tabla[tabla["Atributo sensorial"] == atr_sel].copy()

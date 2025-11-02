@@ -16,6 +16,13 @@ st.set_page_config(page_title="Experimento Sensorial de Café", layout="wide")
 st.sidebar.title("☕ Experimento de Café")
 st.sidebar.caption("Opciones y navegación")
 
+# ===== Navegación
+pagina = st.sidebar.radio(
+    "Ir a:",
+    ["🏠 Inicio", "📊 Exploración", "🧪 Pruebas", "⚙️ Ayuda"]
+)
+
+
 # Archivo por defecto y carga
 BASE_DIR = Path(__file__).resolve().parent
 ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe_merged.csv"
@@ -147,11 +154,7 @@ def validar_columnas(df: pd.DataFrame):
         st.error(f"Faltan columnas requeridas: {faltan}")
         st.stop()
 
-# ===== Navegación
-pagina = st.sidebar.radio(
-    "Ir a:",
-    ["🏠 Inicio", "📊 Exploración", "🧪 Pruebas", "⚙️ Ayuda"]
-)
+
 
 # ===== Carga de datos
 entrada_usuario = archivo if archivo is not None else (ruta_manual.strip() or None)

@@ -436,7 +436,8 @@ elif pagina == "🧪 Pruebas":
                 f"(IC 95 % [{ci_lo:.2f}, {ci_hi:.2f}], p(Holm) = {p_adj:.4f})."
             )
 
-
+    st.markdown("---")
+    st.subheader("Resumen de marcas")
 
     # 1) Ranking de medias (más fácil de leer)
     medias = df.groupby("tipo_cafe")[atr_sel].mean().sort_values(ascending=False)

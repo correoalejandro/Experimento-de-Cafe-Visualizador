@@ -488,16 +488,18 @@ elif pagina == " Pruebas":
    
     # --- Comparaciones por sexo ---
         # --- Explicación de la sección Comparaciones por sexo ---
+    st.markdown("### ⚖️ Comparaciones por sexo")
+    
     st.markdown("#### 🧾 Cómo leer estos resultados")
     st.markdown("""
     - Cada línea compara **hombres vs mujeres** para un **atributo** dentro de una **marca**.
     - **t** indica magnitud y dirección (signo): negativo → promedio H < M; positivo → H > M (según orden interno).
     - **p** es la evidencia estadística: si **p < 0.05**, la diferencia se considera **significativa**.
     - Si **p ≥ 0.05**, no hay evidencia suficiente de diferencia entre sexos para esa marca/atributo.
-    - Recuerda: escalas Likert son ordinales; tratarlas como intervalares es una aproximación habitual.
+    - Recordar: escalas Likert son ordinales; tratarlas como intervalares es una aproximación habitual.
     """)
 
-    st.markdown("### ⚖️ Comparaciones por sexo")
+    
     for atr in ATR:
         for cafe in df["tipo_cafe"].dropna().unique():
             sub = df[df["tipo_cafe"] == cafe]

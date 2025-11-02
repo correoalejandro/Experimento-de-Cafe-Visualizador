@@ -415,27 +415,32 @@ elif pagina == "🧪 Pruebas":
         .sort_values("p-valor ajustado (Holm)")
     )
 
-    a, b = r["Café A"], r["Café B"]
-    diff  = r["Diferencia de medias (A−B)"]
-    ci_lo, ci_hi = r["IC 95 % inferior"], r["IC 95 % superior"]
-    p_adj = r["p-valor ajustado (Holm)"]
-
-    # nombres legibles (quita guiones bajos)
-    na = a.replace("_", " ")
-    nb = b.replace("_", " ")
-
-    # texto según el signo
-    if diff > 0:
-        verbo = "más que"
-    elif diff < 0:
-        verbo = "menos que"
+    st.markdown("**✅ Diferencias significativas (Holm < 0.05)**")
+    if sig.empty:
+        st.info("No se detectaron diferencias significativas para este atributo.")
     else:
-        verbo = "igual que"
+        for _, r in sig.iterrows():
+            a, b = r["Café A"], r["Café B"]
+            diff  = r["Diferencia de medias (A−B)"]
+            ci_lo, ci_hi = r["IC 95 % inferior"], r["IC 95 % superior"]
+            p_adj = r["p-valor ajustado (Holm)"]
 
-    st.markdown(
-        f"**{na}** obtuvo en promedio **{abs(diff):.2f} puntos {verbo} {nb}** "
-        f"(IC 95 % [{ci_lo:.2f}, {ci_hi:.2f}], p(Holm) = {p_adj:.4f})."
-    )
+            # nombres legibles (quita guiones bajos)
+            na = a.replace("_", " ")
+            nb = b.replace("_", " ")
+
+            # texto según el signo
+            if diff > 0:
+                verbo = "más que"
+            elif diff < 0:
+                verbo = "menos que"
+            else:
+                verbo = "igual que"
+
+            st.markdown(
+                f"**{na}** obtuvo en promedio **{abs(diff):.2f} puntos {verbo} {nb}** "
+                f"(IC 95 % [{ci_lo:.2f}, {ci_hi:.2f}], p(Holm) = {p_adj:.4f})."
+            )
 
 
 

@@ -159,7 +159,7 @@ df = aplicar_mapeo(df)
 df = convertir_ordinal_a_likert(df)
 validar_columnas(df)
 
-# =============================
+
 # 🏠 Inicio
 # =============================
 if pagina == "🏠 Inicio":
@@ -198,7 +198,7 @@ elif pagina == "📊 Exploración":
 
     st.markdown("---")
     st.subheader("Distribuciones por marca")
-    seleccion = st.multiselect("Marcas a comparar", marcas, default=marcas[:2])
+    seleccion = st.multiselect("Marcas a comparar", marcas, default=marcas)
     
 
     if seleccion:

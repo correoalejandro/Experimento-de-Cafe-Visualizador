@@ -249,27 +249,22 @@ elif pagina == " Exploración":
     # --- Distribución demográfica ---
     # --- Boxplot de edad factorizado por sexo ---
     st.markdown("### 📈 Distribución de edad por sexo")
-
     if "edad_num" in df.columns and "sexo" in df.columns:
         import altair as alt
-
         chart_box = (
             alt.Chart(df.dropna(subset=["edad_num", "sexo"]))
             .mark_boxplot(size=50)
             .encode(
                 x=alt.X("sexo:N", title="Sexo"),
                 y=alt.Y("edad_num:Q", title="Edad"),
-                color="sexo:N",
-                tooltip=["sexo", "edad_num"]
+                color="sexo:N"
             )
             .properties(width=500, height=350)
         )
-
         st.altair_chart(chart_box, use_container_width=True)
-
     else:
-        st.info("No se encontraron columnas 'edad_num' y/o 'sexo' para generar el boxplot.")
-
+        st.info("Falta 'edad_num' o 'sexo'. Si tienes rangos, mapea primero: "
+                "df['edad_num'] = df['grupo_edad'].map({'18-30': 24, '31-50': 40, '51+': 60})")
 
 # =============================
 #  Pruebas

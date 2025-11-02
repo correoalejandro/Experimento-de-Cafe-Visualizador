@@ -1,0 +1,26 @@
+﻿Edad,Sexo,Olor,Sabor,Acidez,Marca,participante_id
+20,F,Bueno,Regular,Alta,Juan Valdez,1
+20,F,Regular,Bueno,Alta,Juan Valdez,2
+23,M,Bueno,Bueno,Alta,Juan Valdez,3
+36,M,Malo,Regular,Alta,Juan Valdez,4
+20,F,Regular,Regular,Media,Juan Valdez,5
+21,M,Regular,Regular,Media,Juan Valdez,6
+25,M,Regular,Regular,Baja,Juan Valdez,7
+25,M,Regular,Malo,Baja,Juan Valdez,8
+17,M,Regular,Bueno,Baja,Juan Valdez,9
+17,M,Regular,Regular,Alta,Juan Valdez,10
+17,F,Regular,Regular,Baja,Juan Valdez,11
+17,M,Malo,Bueno,Baja,Juan Valdez,12
+20,F,Bueno,Regular,Baja,Juan Valdez,13
+18,M,Bueno,Excelente,Media,Cusine & co,14
+18,M,Bueno,Bueno,Media,Cusine & co,15
+21,F,Regular,Regular,Alta,Cusine & co,16
+24,M,Regular,Regular,Baja,Cusine & co,17
+18,M,Bueno,Bueno,Media,Cusine & co,18
+21,F,Bueno,Malo,Alta,Cusine & co,19
+23,M,Bueno,Bueno,Media,Cusine & co,20
+17,F,Bueno,Bueno,Baja,Cusine & co,21
+17,M,Bueno,Bueno,Media,Cusine & co,22
+21,F,Bueno,Bueno,Media,Cusine & co,23
+20,F,Bueno,Bueno,Media,Cusine & co,24
+20,M,Regular,Bueno,Media,Cusine & co,25

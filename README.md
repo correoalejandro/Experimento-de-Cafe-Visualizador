@@ -1,6 +1,6 @@
 # Experimento Sensorial de Café
 
-Aplicación Streamlit para explorar y analizar los resultados de un experimento sensorial de café. La interfaz permite cargar datos propios o utilizar el conjunto de ejemplo incluido (`MuestreoCafe.csv`) para realizar análisis exploratorio y pruebas de hipótesis.
+Aplicación Streamlit para explorar y analizar los resultados de un experimento sensorial de café. La interfaz permite cargar datos propios o utilizar el conjunto de ejemplo incluido (`MuestreoCafe_merged.csv`) para realizar análisis exploratorio y pruebas de hipótesis.
 
 ## Requisitos
 
@@ -23,7 +23,7 @@ pip install -r requirements.txt
 streamlit run app_experimento_cafe.py
 ```
 
-La aplicación cargará automáticamente el archivo de ejemplo si no se proporciona uno propio.
+La aplicación cargará automáticamente el archivo de ejemplo `MuestreoCafe_merged.csv` si no se proporciona uno propio (puedes sustituirlo desde la barra lateral con un archivo subido o una ruta local).
 
 ## Despliegue en Streamlit Cloud
 
@@ -31,7 +31,7 @@ Antes de publicar, verifica esta lista rápida:
 
 - `app_experimento_cafe.py` en la raíz del repositorio (es el entrypoint que Streamlit ejecutará).
 - `requirements.txt` con las dependencias de la app.
-- `MuestreoCafe.csv` o tu propio CSV de ejemplo para que la app tenga datos iniciales.
+- `MuestreoCafe_merged.csv` (incluido) o tu propio CSV de ejemplo para que la app tenga datos iniciales.
 
 Con todo listo:
 

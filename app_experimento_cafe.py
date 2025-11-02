@@ -313,7 +313,8 @@ elif pagina == "🧪 Pruebas":
                         "t": float(tval), "gl": int(len(sub)-1), "p": float(pval),
                         "hedges_g": np.nan  # opcional en apareado
                     })
-        cols = ["atributo","cafe_a","cafe_b","n_parejas","dif_media_a_menos_b","ci95_inf","ci95_sup","t","gl","p","hedges_g"]
+        cols = ["Atributo sensorial","Café A","Café B","Participantes","Diferencia de medias (A−B)","IC 95 % inferior","IC 95 % superior","Estadístico t","gl","p-valor","Tamaño del efecto (Hedges g)"]
+
 
     if not resultados:
         st.info("No hay comparaciones posibles con la configuración actual.")

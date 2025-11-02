@@ -247,24 +247,31 @@ elif pagina == " Exploración":
         st.altair_chart(chart, use_container_width=True)
 
     # --- Distribución demográfica ---
-    # --- Boxplot de edad factorizado por sexo ---
-    st.markdown("### 📈 Distribución de edad por sexo")
-    if "edad_num" in df.columns and "sexo" in df.columns:
+    # --- Boxplot "edad" (a partir de grupo_edad) factorizado por sexo ---
+    st.markdown("### 📈 Distribución de 'edad' (derivada de grupo_edad) por sexo")
+
+    # Mapeo inline (no altera tu df original)
+    _mapa_midpoints = {"18-30": 24, "31-50": 40, "51+": 60}
+    df_box = df.dropna(subset=["grupo_edad", "sexo"]).assign(
+        edad_num = df["grupo_edad"].map(_mapa_midpoints)
+    )
+
+    if df_box["edad_num"].notna().any():
         import altair as alt
         chart_box = (
-            alt.Chart(df.dropna(subset=["edad_num", "sexo"]))
+            alt.Chart(df_box)
             .mark_boxplot(size=50)
             .encode(
                 x=alt.X("sexo:N", title="Sexo"),
-                y=alt.Y("edad_num:Q", title="Edad"),
-                color="sexo:N"
+                y=alt.Y("edad_num:Q", title="Edad (representativa del rango)"),
+                color="sexo:N",
+                tooltip=["sexo", "grupo_edad"]
             )
-            .properties(width=500, height=350)
+            .properties(width=520, height=360)
         )
         st.altair_chart(chart_box, use_container_width=True)
     else:
-        st.info("Falta 'edad_num' o 'sexo'. Si tienes rangos, mapea primero: "
-                "df['edad_num'] = df['grupo_edad'].map({'18-30': 24, '31-50': 40, '51+': 60})")
+        st.info("No hay valores reconocibles en 'grupo_edad' (esperado: '18-30', '31-50', '51+').")
 
 # =============================
 #  Pruebas

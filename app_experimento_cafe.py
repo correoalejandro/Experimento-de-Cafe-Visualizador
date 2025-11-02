@@ -158,13 +158,10 @@ def validar_columnas(df: pd.DataFrame):
 
 
 # ===== Carga de datos
-entrada_usuario = archivo if archivo is not None else (ruta_manual.strip() or None)
-usa_archivo_default = entrada_usuario is None
+entrada_usuario = ARCHIVO_POR_DEFECTO
+usa_archivo_default = True
 
-if usa_archivo_default:
-    st.sidebar.caption(
-        f"Usando archivo por defecto: `{ARCHIVO_POR_DEFECTO.name}` incluido en la app."
-    )
+
 
 try:
     df = leer_csv_flexible(entrada_usuario)

@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent
 ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe_merged.csv"
 if ARCHIVO_POR_DEFECTO.is_file():
     st.sidebar.download_button(
-        "Descargar CSV de ejemplo",
+        "Descargar datos",
         data=ARCHIVO_POR_DEFECTO.read_bytes(),
         file_name=ARCHIVO_POR_DEFECTO.name,
         mime="text/csv",
@@ -400,13 +400,7 @@ elif pagina == "🧪 Pruebas":
 
     atr_sel = st.selectbox("Atributo", ATR, index=0, key="atr_interp")
 
-    # 1) Ranking de medias (más fácil de leer)
-    medias = df.groupby("tipo_cafe")[atr_sel].mean().sort_values(ascending=False)
-    st.markdown("**🏆 Ranking de medias**")
-    for i, (marca, val) in enumerate(medias.items(), start=1):
-        st.markdown(f"{i}. **{marca}** — {val:.2f}")
-
-    st.markdown("---")
+    
 
     # 2) Solo comparaciones significativas (Holm < 0.05)
     sig = (
@@ -444,14 +438,13 @@ elif pagina == "🧪 Pruebas":
 
 
 
+    # 1) Ranking de medias (más fácil de leer)
+    medias = df.groupby("tipo_cafe")[atr_sel].mean().sort_values(ascending=False)
+    st.markdown("**🏆 Ranking de medias**")
+    for i, (marca, val) in enumerate(medias.items(), start=1):
+        st.markdown(f"{i}. **{marca}** — {val:.2f}")
 
-    with st.expander("Ver todas las comparaciones (completo)"):
-        todas = tabla[tabla["Atributo sensorial"] == atr_sel].copy()
-        todas["Magnitud absoluta (|Δ|)"] = todas["Diferencia de medias (A−B)"].abs()
-        st.dataframe(
-            todas.sort_values(["p-valor ajustado (Holm)","Magnitud absoluta (|Δ|)"]),
-            use_container_width=True
-        )
+    st.markdown("---")
 
 
 

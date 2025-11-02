@@ -19,8 +19,8 @@ st.sidebar.caption("Opciones y navegación")
 # Archivo por defecto y carga
 BASE_DIR = Path(__file__).resolve().parent
 ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe_merged.csv"
-#archivo = st.sidebar.file_uploader("", type=["csv"])
-ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
+archivo = st.sidebar.file_uploader("", type=["csv"])
+# ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
 
 if ARCHIVO_POR_DEFECTO.is_file():
     st.sidebar.download_button(

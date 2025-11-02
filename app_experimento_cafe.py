@@ -247,31 +247,63 @@ elif pagina == " Exploración":
         st.altair_chart(chart, use_container_width=True)
 
     # --- Distribución demográfica ---
-    # --- Boxplot "edad" (a partir de grupo_edad) factorizado por sexo ---
-    st.markdown("### 📈 Distribución de 'edad' (derivada de grupo_edad) por sexo")
+    # --- Boxplots de edad (general y por sexo) ---
+    st.markdown("### 🧑‍🤝‍🧑 Boxplots de edad")
 
-    # Mapeo inline (no altera tu df original)
-    _mapa_midpoints = {"18-30": 24, "31-50": 40, "51+": 60}
-    df_box = df.dropna(subset=["grupo_edad", "sexo"]).assign(
-        edad_num = df["grupo_edad"].map(_mapa_midpoints)
-    )
+    # 1) Asegurar edad numérica: usar 'edad_num' si existe; si no, aproximar desde 'grupo_edad'
+    df_box = df.copy()
 
-    if df_box["edad_num"].notna().any():
-        import altair as alt
-        chart_box = (
-            alt.Chart(df_box)
-            .mark_boxplot(size=50)
-            .encode(
-                x=alt.X("sexo:N", title="Sexo"),
-                y=alt.Y("edad_num:Q", title="Edad (representativa del rango)"),
-                color="sexo:N",
-                tooltip=["sexo", "grupo_edad"]
-            )
-            .properties(width=520, height=360)
-        )
-        st.altair_chart(chart_box, use_container_width=True)
+    if "edad_num" not in df_box.columns:
+        if "grupo_edad" in df_box.columns:
+            import re
+            def _midpoint(rango):
+                # Ej.: "18-30" -> 24; "31–50" -> 40; "51+" -> 51 (aprox)
+                s = str(rango)
+                m = re.findall(r"\d+", s)
+                if len(m) >= 2:
+                    a, b = map(int, m[:2])
+                    return (a + b) / 2
+                elif len(m) == 1:
+                    return float(m[0])  # caso "51+"
+                return None
+            df_box["edad_num"] = df_box["grupo_edad"].map(_midpoint)
+        else:
+            st.info("No hay 'edad_num' ni 'grupo_edad' para construir boxplots de edad.")
+            df_box["edad_num"] = np.nan
+
+    df_box = df_box.dropna(subset=["edad_num"])
+
+    if df_box.empty:
+        st.info("No hay datos de edad para graficar.")
     else:
-        st.info("No hay valores reconocibles en 'grupo_edad' (esperado: '18-30', '31-50', '51+').")
+        import altair as alt
+
+        # A) Boxplot general (toda la muestra)
+        st.markdown("**General**")
+        chart_box_general = (
+            alt.Chart(df_box)
+            .mark_boxplot(size=60)
+            .encode(y=alt.Y("edad_num:Q", title="Edad"))
+            .properties(width=500, height=250)
+        )
+        st.altair_chart(chart_box_general, use_container_width=True)
+
+        # B) Boxplot por sexo
+        if "sexo" in df_box.columns:
+            st.markdown("**Por sexo**")
+            chart_box_sexo = (
+                alt.Chart(df_box)
+                .mark_boxplot(size=40)
+                .encode(
+                    x=alt.X("sexo:N", title="Sexo"),
+                    y=alt.Y("edad_num:Q", title="Edad"),
+                    color="sexo:N"
+                )
+                .properties(width=600, height=350)
+            )
+            st.altair_chart(chart_box_sexo, use_container_width=True)
+        else:
+            st.info("No se encontró la columna 'sexo' para el boxplot por sexo.")
 
 # =============================
 #  Pruebas
@@ -488,9 +520,9 @@ elif pagina == " Pruebas":
    
     # --- Comparaciones por sexo ---
         # --- Explicación de la sección Comparaciones por sexo ---
-    st.markdown("### ⚖️ Comparaciones por sexo")
+    st.markdown("###  Comparaciones por sexo")
     
-    st.markdown("#### 🧾 Cómo leer estos resultados")
+    st.markdown("####  Cómo leer resultados a continuación:")
     st.markdown("""
     - Cada línea compara **hombres vs mujeres** para un **atributo** dentro de una **marca**.
     - **t** indica magnitud y dirección (signo): negativo → promedio H < M; positivo → H > M (según orden interno).
@@ -498,7 +530,7 @@ elif pagina == " Pruebas":
     - Si **p ≥ 0.05**, no hay evidencia suficiente de diferencia entre sexos para esa marca/atributo.
     - Recordar: escalas Likert son ordinales; tratarlas como intervalares es una aproximación habitual.
     """)
-
+    st.markdown("#### Resultados:   ")
     
     for atr in ATR:
         for cafe in df["tipo_cafe"].dropna().unique():

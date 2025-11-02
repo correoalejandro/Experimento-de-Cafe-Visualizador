@@ -18,9 +18,23 @@ st.sidebar.caption("Carga de datos, opciones y navegación")
 
 # Archivo por defecto y carga
 BASE_DIR = Path(__file__).resolve().parent
-ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe.csv"
+ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe_merged.csv"
 archivo = st.sidebar.file_uploader("Sube tu CSV", type=["csv"])
 ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
+
+if ARCHIVO_POR_DEFECTO.is_file():
+    st.sidebar.download_button(
+        "Descargar CSV de ejemplo",
+        data=ARCHIVO_POR_DEFECTO.read_bytes(),
+        file_name=ARCHIVO_POR_DEFECTO.name,
+        mime="text/csv",
+        help="Útil para validar el formato esperado antes de subir tus propios datos."
+    )
+    st.sidebar.info(
+        "Si no subes un archivo propio se cargará automáticamente "
+        f"`{ARCHIVO_POR_DEFECTO.name}`. Puedes reemplazarlo subiendo un CSV "
+        "con el botón anterior o escribiendo una ruta personalizada."
+    )
 
 # Mapeo de encabezados → nombres canónicos
 # Ajusta a tus nombres reales de columnas (ya configurado para tu CSV)
@@ -143,8 +157,9 @@ pagina = st.sidebar.radio(
 
 # ===== Carga de datos
 entrada_usuario = archivo if archivo is not None else (ruta_manual.strip() or None)
+usa_archivo_default = entrada_usuario is None
 
-if entrada_usuario is None:
+if usa_archivo_default:
     st.sidebar.caption(
         f"Usando archivo por defecto: `{ARCHIVO_POR_DEFECTO.name}` incluido en la app."
     )
@@ -154,6 +169,15 @@ try:
 except Exception as e:
     st.error(f"No se pudo leer el CSV: {e}")
     st.stop()
+
+if usa_archivo_default:
+    fuente_datos = f"{ARCHIVO_POR_DEFECTO.name} (predefinido)"
+elif archivo is not None:
+    fuente_datos = f"{archivo.name} (archivo subido)"
+else:
+    fuente_datos = f"{Path(ruta_manual.strip()).name or ruta_manual.strip()} (ruta manual)"
+
+st.sidebar.caption(f"Fuente actual: {fuente_datos}")
 
 df = aplicar_mapeo(df)
 df = convertir_ordinal_a_likert(df)
@@ -170,9 +194,14 @@ if pagina == "🏠 Inicio":
     - Atributos: **olor, sabor, acidez** (Likert 1–7 o convertidos desde texto).
     """)
 
-    st.subheader("Vista previa de datos")
-    st.dataframe(df.head(25), use_container_width=True)
-    st.caption(f"Filas: {len(df):,} — Columnas: {', '.join(df.columns)}")
+    st.subheader("Vista completa de datos")
+    st.caption(f"Fuente de datos actual: {fuente_datos}")
+    st.dataframe(df, use_container_width=True)
+    participantes = df["participante_id"].nunique() if "participante_id" in df.columns else "?"
+    st.caption(
+        f"Filas: {len(df):,} — Columnas: {', '.join(df.columns)} — "
+        f"Participantes únicos: {participantes}"
+    )
 
 # =============================
 # 📊 Exploración

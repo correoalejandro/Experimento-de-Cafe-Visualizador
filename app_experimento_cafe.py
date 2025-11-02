@@ -183,7 +183,7 @@ df = aplicar_mapeo(df)
 df = convertir_ordinal_a_likert(df)
 validar_columnas(df)
 
-# =============================
+
 # 🏠 Inicio
 # =============================
 if pagina == "🏠 Inicio":
@@ -227,7 +227,7 @@ elif pagina == "📊 Exploración":
 
     st.markdown("---")
     st.subheader("Distribuciones por marca")
-    seleccion = st.multiselect("Marcas a comparar", marcas, default=marcas[:2])
+    seleccion = st.multiselect("Marcas a comparar", marcas, default=marcas)
     
 
     if seleccion:
@@ -249,10 +249,41 @@ elif pagina == "📊 Exploración":
 # 🧪 Pruebas
 # =============================
 elif pagina == "🧪 Pruebas":
+    import altair as alt
     st.title("🧪 Pruebas de hipótesis")
     diseño = st.radio("Selecciona diseño", ["Entre-sujetos (Welch)", "Intra-sujetos (apareado)"], horizontal=True)
     marcas = sorted(df["tipo_cafe"].dropna().unique().tolist())
     ATR = st.multiselect("Atributos a probar", ATRIBUTOS, default=ATRIBUTOS)
+
+    # ---- utilidades efecto y CI ----
+    import numpy as np
+    from scipy import stats
+
+    def hedges_g_ind(a, b):
+        """Hedges g para grupos independientes (aprox. aun con varianzas desiguales)."""
+        na, nb = len(a), len(b)
+        sa2, sb2 = np.var(a, ddof=1), np.var(b, ddof=1)
+        sp = np.sqrt(((na-1)*sa2 + (nb-1)*sb2) / (na+nb-2)) if (na+nb-2)>0 else np.nan
+        d = (np.mean(a) - np.mean(b)) / sp if sp>0 else np.nan
+        # corrección de Hedges
+        J = 1 - 3/(4*(na+nb)-9) if (na+nb)>2 else 1.0
+        return d*J
+
+    def welch_df(sa2, na, sb2, nb):
+        num = (sa2/na + sb2/nb)**2
+        den = (sa2**2 / (na**2*(na-1))) + (sb2**2 / (nb**2*(nb-1)))
+        return num/den
+
+    def welch_ci(a, b, alpha=0.05):
+        """IC para diferencia de medias (A-B) con Welch."""
+        na, nb = len(a), len(b)
+        ma, mb = np.mean(a), np.mean(b)
+        sa2, sb2 = np.var(a, ddof=1), np.var(b, ddof=1)
+        se = np.sqrt(sa2/na + sb2/nb)
+        dfw = welch_df(sa2, na, sb2, nb)
+        tcrit = stats.t.ppf(1 - alpha/2, dfw)
+        diff = ma - mb
+        return diff, (diff - tcrit*se, diff + tcrit*se), dfw, se
 
     def holm(pvals: np.ndarray) -> np.ndarray:
         orden = np.argsort(pvals)
@@ -262,9 +293,9 @@ elif pagina == "🧪 Pruebas":
             ajust[idx] = min((m - rank + 1) * pvals[idx], 1.0)
         return ajust
 
+    # ---- construir resultados ----
     resultados = []
     if diseño.startswith("Entre"):
-        # t de Welch (grupos independientes)
         for atr in ATR:
             for i in range(len(marcas)):
                 for j in range(i+1, len(marcas)):
@@ -274,13 +305,21 @@ elif pagina == "🧪 Pruebas":
                     if len(A) < 2 or len(B) < 2:
                         continue
                     tval, pval = stats.ttest_ind(A, B, equal_var=False, nan_policy="omit")
-                    resultados.append([atr, a, b, len(A), len(B), float(A.mean()-B.mean()), float(tval), float(pval)])
-        cols = ["atributo","cafe_a","cafe_b","n_a","n_b","dif_media_a_menos_b","t","p"]
+                    diff, ci, dfw, se = welch_ci(A, B)
+                    g = hedges_g_ind(A, B)
+                    resultados.append({
+                        "atributo": atr, "cafe_a": a, "cafe_b": b,
+                        "n_a": int(len(A)), "n_b": int(len(B)),
+                        "dif_media_a_menos_b": float(diff),
+                        "ci95_inf": float(ci[0]), "ci95_sup": float(ci[1]),
+                        "t": float(tval), "gl_welch": float(dfw), "p": float(pval),
+                        "hedges_g": float(g)
+                    })
+        cols = ["atributo","cafe_a","cafe_b","n_a","n_b","dif_media_a_menos_b","ci95_inf","ci95_sup","t","gl_welch","p","hedges_g"]
     else:
         # apareado por participante
-        pivots = {atr: df.pivot_table(index="participante_id", columns="tipo_cafe", values=atr, aggfunc="first") for atr in ATR}
         for atr in ATR:
-            P = pivots[atr]
+            P = df.pivot_table(index="participante_id", columns="tipo_cafe", values=atr, aggfunc="first")
             marcas_loc = [m for m in marcas if m in P.columns]
             for i in range(len(marcas_loc)):
                 for j in range(i+1, len(marcas_loc)):
@@ -290,23 +329,93 @@ elif pagina == "🧪 Pruebas":
                         continue
                     tval, pval = stats.ttest_rel(sub[a].values, sub[b].values, nan_policy="omit")
                     diff = float(np.nanmean(sub[a].values - sub[b].values))
-                    resultados.append([atr, a, b, int(len(sub)), diff, float(tval), float(pval)])
-        cols = ["atributo","cafe_a","cafe_b","n_parejas","dif_media_a_menos_b","t","p"]
+                    # IC pareado
+                    d = sub[a].values - sub[b].values
+                    se = stats.sem(d, nan_policy="omit")
+                    tcrit = stats.t.ppf(0.975, df=len(d)-1)
+                    ci = (diff - tcrit*se, diff + tcrit*se)
+                    resultados.append({
+                        "atributo": atr, "cafe_a": a, "cafe_b": b,
+                        "n_parejas": int(len(sub)),
+                        "dif_media_a_menos_b": float(diff),
+                        "ci95_inf": float(ci[0]), "ci95_sup": float(ci[1]),
+                        "t": float(tval), "gl": int(len(sub)-1), "p": float(pval),
+                        "hedges_g": np.nan  # opcional en apareado
+                    })
+        cols = ["atributo","cafe_a","cafe_b","n_parejas","dif_media_a_menos_b","ci95_inf","ci95_sup","t","gl","p","hedges_g"]
 
-    if resultados:
-        tabla = pd.DataFrame(resultados, columns=cols)
-        # Holm por atributo
-        tablas = []
-        for atr, sub in tabla.groupby("atributo"):
-            sub = sub.copy()
-            sub["p_holm"] = holm(sub["p"].values)
-            sub["sig_0_05_holm"] = sub["p_holm"] < 0.05
-            tablas.append(sub)
-        tabla = pd.concat(tablas, ignore_index=True).sort_values(["atributo","p_holm","p"])
-        st.subheader("Resultados")
-        st.dataframe(tabla, use_container_width=True)
+    if not resultados:
+        st.info("No hay comparaciones posibles con la configuración actual.")
+        st.stop()
+
+    tabla = pd.DataFrame(resultados, columns=cols)
+
+    # Holm por atributo
+    tablas = []
+    for atr, sub in tabla.groupby("atributo", as_index=False):
+        sub = sub.copy()
+        sub["p_holm"] = holm(sub["p"].values)
+        sub["sig_0_05_holm"] = sub["p_holm"] < 0.05
+        tablas.append(sub)
+    tabla = pd.concat(tablas, ignore_index=True).sort_values(["atributo","p_holm","p"])
+
+    # ===== Layout compacto y legible =====
+    st.subheader("Resultados (resumen)")
+    st.dataframe(
+        tabla[["atributo","cafe_a","cafe_b",
+            *(["n_a","n_b"] if diseño.startswith("Entre") else ["n_parejas"]),
+            "dif_media_a_menos_b","ci95_inf","ci95_sup","p_holm","sig_0_05_holm","hedges_g"]],
+        use_container_width=True
+    )
+
+    st.markdown("---")
+    st.subheader("Interpretación")
+
+    atr_sel = st.selectbox("Atributo", ATR, index=0, key="atr_interp")
+
+    # 1) Ranking de medias (más fácil de leer)
+    medias = (
+        df.groupby("tipo_cafe")[atr_sel]
+        .mean()
+        .sort_values(ascending=False)
+    )
+    st.markdown("**🏆 Ranking de medias**")
+    for i, (marca, val) in enumerate(medias.items(), start=1):
+        st.markdown(f"{i}. **{marca}** — {val:.2f}")
+
+    st.markdown("---")
+
+    # 2) Solo comparaciones significativas (Holm < 0.05), ordenadas por p_holm
+    sig = (
+        tabla[(tabla["atributo"] == atr_sel) & (tabla["p_holm"] < 0.05)]
+        .copy()
+        .sort_values("p_holm")
+    )
+
+    st.markdown("**✅ Diferencias significativas (Holm < 0.05)**")
+    if sig.empty:
+        st.info("No se detectaron diferencias significativas para este atributo.")
     else:
-        st.info("No hay pares comparables suficientes con la configuración actual.")
+        for _, r in sig.iterrows():
+            a, b = r["cafe_a"], r["cafe_b"]
+            diff  = r["dif_media_a_menos_b"]
+            ci_lo, ci_hi = r["ci95_inf"], r["ci95_sup"]
+            arrow = "→" if diff > 0 else "←"
+            st.markdown(
+                f"- **{a} {arrow} {b}**: Δ = **{abs(diff):.2f}** "
+                f"(IC95% [{ci_lo:.2f}, {ci_hi:.2f}]; p(Holm) = {r['p_holm']:.4f})"
+            )
+
+    # (Opcional) botón para ver todas las comparaciones en bruto
+    with st.expander("Ver todas las comparaciones (completo)"):
+        todas = tabla[tabla["atributo"] == atr_sel].copy()
+        todas["Δ_abs"] = todas["dif_media_a_menos_b"].abs()
+        st.dataframe(
+            todas.sort_values(["p_holm","Δ_abs"]),
+            use_container_width=True
+        )
+
+
 
 # =============================
 # ⚙️ Ayuda

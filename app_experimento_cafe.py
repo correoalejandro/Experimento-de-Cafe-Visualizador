@@ -294,6 +294,7 @@ elif pagina == "🧪 Pruebas":
         return ajust
 
     # ---- construir resultados ----
+        # ---- construir resultados (todo con nombres legibles) ----
     resultados = []
     if diseño.startswith("Entre"):
         for atr in ATR:
@@ -308,15 +309,19 @@ elif pagina == "🧪 Pruebas":
                     diff, ci, dfw, se = welch_ci(A, B)
                     g = hedges_g_ind(A, B)
                     resultados.append({
-                        "atributo": atr, "cafe_a": a, "cafe_b": b,
-                        "n_a": int(len(A)), "n_b": int(len(B)),
-                        "dif_media_a_menos_b": float(diff),
-                        "ci95_inf": float(ci[0]), "ci95_sup": float(ci[1]),
-                        "t": float(tval), "gl_welch": float(dfw), "p": float(pval),
-                        "hedges_g": float(g)
+                        "Atributo sensorial": atr,
+                        "Café A": a,
+                        "Café B": b,
+                        "Participantes (A)": int(len(A)),
+                        "Participantes (B)": int(len(B)),
+                        "Diferencia de medias (A−B)": float(diff),
+                        "IC 95 % inferior": float(ci[0]),
+                        "IC 95 % superior": float(ci[1]),
+                        "Estadístico t": float(tval),
+                        "gl": float(dfw),
+                        "p-valor": float(pval),
+                        "Tamaño del efecto (Hedges g)": float(g),
                     })
-        cols = ["Atributo sensorial","Café A","Café B","Participantes","Diferencia de medias (A−B)","IC 95 % inferior","IC 95 % superior","Estadístico t","gl","p-valor","Tamaño del efecto (Hedges g)"]
-
     else:
         # apareado por participante
         for atr in ATR:
@@ -330,43 +335,61 @@ elif pagina == "🧪 Pruebas":
                         continue
                     tval, pval = stats.ttest_rel(sub[a].values, sub[b].values, nan_policy="omit")
                     diff = float(np.nanmean(sub[a].values - sub[b].values))
-                    # IC pareado
                     d = sub[a].values - sub[b].values
                     se = stats.sem(d, nan_policy="omit")
                     tcrit = stats.t.ppf(0.975, df=len(d)-1)
                     ci = (diff - tcrit*se, diff + tcrit*se)
                     resultados.append({
-                        "atributo": atr, "cafe_a": a, "cafe_b": b,
-                        "n_parejas": int(len(sub)),
-                        "dif_media_a_menos_b": float(diff),
-                        "ci95_inf": float(ci[0]), "ci95_sup": float(ci[1]),
-                        "t": float(tval), "gl": int(len(sub)-1), "p": float(pval),
-                        "hedges_g": np.nan  # opcional en apareado
+                        "Atributo sensorial": atr,
+                        "Café A": a,
+                        "Café B": b,
+                        "Participantes": int(len(sub)),
+                        "Diferencia de medias (A−B)": float(diff),
+                        "IC 95 % inferior": float(ci[0]),
+                        "IC 95 % superior": float(ci[1]),
+                        "Estadístico t": float(tval),
+                        "gl": int(len(sub)-1),
+                        "p-valor": float(pval),
+                        "Tamaño del efecto (Hedges g)": np.nan,
                     })
-        cols = ["Atributo sensorial","Café A","Café B","Participantes","Diferencia de medias (A−B)","IC 95 % inferior","IC 95 % superior","Estadístico t","gl","p-valor","Tamaño del efecto (Hedges g)"]
-
 
     if not resultados:
         st.info("No hay comparaciones posibles con la configuración actual.")
         st.stop()
 
-    tabla = pd.DataFrame(resultados, columns=cols)
+    tabla = pd.DataFrame(resultados)
 
-    # Holm por atributo
+    # Holm por atributo (usando nombre legible)
     tablas = []
-    for atr, sub in tabla.groupby("atributo", as_index=False):
+    for atr, sub in tabla.groupby("Atributo sensorial", as_index=False):
         sub = sub.copy()
-        sub["p_holm"] = holm(sub["p"].values)
-        sub["sig_0_05_holm"] = sub["p_holm"] < 0.05
+        pvals = sub["p-valor"].values
+        orden = np.argsort(pvals)
+        m = len(pvals)
+        ajust = np.empty_like(pvals, dtype=float)
+        for rank, idx in enumerate(orden, start=1):
+            ajust[idx] = min((m - rank + 1) * pvals[idx], 1.0)
+        sub["p-valor ajustado (Holm)"] = ajust
+        sub["Significativo (α = 0.05)"] = sub["p-valor ajustado (Holm)"] < 0.05
         tablas.append(sub)
-    tabla = pd.concat(tablas, ignore_index=True).sort_values(["atributo","p_holm","p"])
+
+    tabla = pd.concat(tablas, ignore_index=True).sort_values(
+        ["Atributo sensorial", "p-valor ajustado (Holm)", "p-valor"]
+    )
 
     # ===== Layout compacto y legible =====
     st.subheader("Resultados (resumen)")
+    cols_entre = ["Atributo sensorial","Café A","Café B",
+                "Participantes (A)","Participantes (B)",
+                "Diferencia de medias (A−B)","IC 95 % inferior","IC 95 % superior",
+                "Estadístico t","gl","p-valor","p-valor ajustado (Holm)","Significativo (α = 0.05)","Tamaño del efecto (Hedges g)"]
+    cols_apar = ["Atributo sensorial","Café A","Café B",
+                "Participantes",
+                "Diferencia de medias (A−B)","IC 95 % inferior","IC 95 % superior",
+                "Estadístico t","gl","p-valor","p-valor ajustado (Holm)","Significativo (α = 0.05)","Tamaño del efecto (Hedges g)"]
+
     st.dataframe(
-        tabla[["atributo","cafe_a","cafe_b",
-            *(["n_a","n_b"] if diseño.startswith("Entre") else ["n_parejas"]),
-            "dif_media_a_menos_b","ci95_inf","ci95_sup","p_holm","sig_0_05_holm","hedges_g"]],
+        tabla[cols_entre] if diseño.startswith("Entre") else tabla[cols_apar],
         use_container_width=True
     )
 
@@ -376,22 +399,18 @@ elif pagina == "🧪 Pruebas":
     atr_sel = st.selectbox("Atributo", ATR, index=0, key="atr_interp")
 
     # 1) Ranking de medias (más fácil de leer)
-    medias = (
-        df.groupby("tipo_cafe")[atr_sel]
-        .mean()
-        .sort_values(ascending=False)
-    )
+    medias = df.groupby("tipo_cafe")[atr_sel].mean().sort_values(ascending=False)
     st.markdown("**🏆 Ranking de medias**")
     for i, (marca, val) in enumerate(medias.items(), start=1):
         st.markdown(f"{i}. **{marca}** — {val:.2f}")
 
     st.markdown("---")
 
-    # 2) Solo comparaciones significativas (Holm < 0.05), ordenadas por p_holm
+    # 2) Solo comparaciones significativas (Holm < 0.05)
     sig = (
-        tabla[(tabla["atributo"] == atr_sel) & (tabla["p_holm"] < 0.05)]
+        tabla[(tabla["Atributo sensorial"] == atr_sel) & (tabla["p-valor ajustado (Holm)"] < 0.05)]
         .copy()
-        .sort_values("p_holm")
+        .sort_values("p-valor ajustado (Holm)")
     )
 
     st.markdown("**✅ Diferencias significativas (Holm < 0.05)**")
@@ -399,21 +418,20 @@ elif pagina == "🧪 Pruebas":
         st.info("No se detectaron diferencias significativas para este atributo.")
     else:
         for _, r in sig.iterrows():
-            a, b = r["cafe_a"], r["cafe_b"]
-            diff  = r["dif_media_a_menos_b"]
-            ci_lo, ci_hi = r["ci95_inf"], r["ci95_sup"]
+            a, b = r["Café A"], r["Café B"]
+            diff  = r["Diferencia de medias (A−B)"]
+            ci_lo, ci_hi = r["IC 95 % inferior"], r["IC 95 % superior"]
             arrow = "→" if diff > 0 else "←"
             st.markdown(
                 f"- **{a} {arrow} {b}**: Δ = **{abs(diff):.2f}** "
-                f"(IC95% [{ci_lo:.2f}, {ci_hi:.2f}]; p(Holm) = {r['p_holm']:.4f})"
+                f"(IC95% [{ci_lo:.2f}, {ci_hi:.2f}]; p(Holm) = {r['p-valor ajustado (Holm)']:.4f})"
             )
 
-    # (Opcional) botón para ver todas las comparaciones en bruto
     with st.expander("Ver todas las comparaciones (completo)"):
-        todas = tabla[tabla["atributo"] == atr_sel].copy()
-        todas["Δ_abs"] = todas["dif_media_a_menos_b"].abs()
+        todas = tabla[tabla["Atributo sensorial"] == atr_sel].copy()
+        todas["Magnitud absoluta (|Δ|)"] = todas["Diferencia de medias (A−B)"].abs()
         st.dataframe(
-            todas.sort_values(["p_holm","Δ_abs"]),
+            todas.sort_values(["p-valor ajustado (Holm)","Magnitud absoluta (|Δ|)"]),
             use_container_width=True
         )
 

@@ -19,22 +19,8 @@ st.sidebar.caption("Carga de datos, opciones y navegación")
 # Archivo por defecto y carga
 BASE_DIR = Path(__file__).resolve().parent
 ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe_merged.csv"
-if ARCHIVO_POR_DEFECTO.is_file():
-    st.sidebar.info(
-        "Si no subes un archivo propio se cargará automáticamente "
-        f"`{ARCHIVO_POR_DEFECTO.name}`. Puedes reemplazarlo subiendo un CSV "
-        "con el botón siguiente o escribiendo una ruta personalizada."
-    )
-    st.sidebar.download_button(
-        "Descargar CSV de ejemplo",
-        data=ARCHIVO_POR_DEFECTO.read_bytes(),
-        file_name=ARCHIVO_POR_DEFECTO.name,
-        mime="text/csv",
-        help="Útil para validar el formato esperado antes de subir tus propios datos."
-    )
-
-ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
 archivo = st.sidebar.file_uploader("Sube tu CSV", type=["csv"])
+ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
 
 if ARCHIVO_POR_DEFECTO.is_file():
     st.sidebar.download_button(

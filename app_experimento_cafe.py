@@ -247,43 +247,29 @@ elif pagina == " Exploración":
         st.altair_chart(chart, use_container_width=True)
 
     # --- Distribución demográfica ---
-    # --- Histograma / barra por edad ---
-    st.markdown("### 🧑‍🤝‍🧑 Histograma por edad")
+    # --- Boxplot de edad factorizado por sexo ---
+    st.markdown("### 📈 Distribución de edad por sexo")
 
-    # Si 'grupo_edad' es categórica (p. ej. '18-30'), mostramos barras de conteo
-    if "grupo_edad" in df.columns:
-        tabla_edades = df.groupby("grupo_edad")["participante_id"].nunique().reset_index(name="Participantes")
-        # Ordenar por rango si los labels tienen patrón típico
-        try:
-            # Orden inteligente si la etiqueta es "18-30", "31-50", etc.
-            def _clave(e):
-                import re
-                m = re.search(r"(\d+)", str(e))
-                return int(m.group(1)) if m else 9999
-            tabla_edades = tabla_edades.sort_values(by="grupo_edad", key=lambda s: s.map(_clave))
-        except Exception:
-            pass
-
-        st.dataframe(tabla_edades, use_container_width=True)
-
+    if "edad_num" in df.columns and "sexo" in df.columns:
         import altair as alt
-        chart_age = (
-            alt.Chart(tabla_edades)
-            .mark_bar()
+
+        chart_box = (
+            alt.Chart(df.dropna(subset=["edad_num", "sexo"]))
+            .mark_boxplot(size=50)
             .encode(
-                x=alt.X("grupo_edad:N", title="Grupo de edad"),
-                y=alt.Y("Participantes:Q", title="Número de participantes"),
-                tooltip=["grupo_edad", "Participantes"]
+                x=alt.X("sexo:N", title="Sexo"),
+                y=alt.Y("edad_num:Q", title="Edad"),
+                color="sexo:N",
+                tooltip=["sexo", "edad_num"]
             )
-            .properties(width=600, height=350)
+            .properties(width=500, height=350)
         )
-        st.altair_chart(chart_age, use_container_width=True)
+
+        st.altair_chart(chart_box, use_container_width=True)
+
     else:
-        st.info("No se encontró la columna 'grupo_edad'.")
-        st.markdown("### 👥 Distribución por edad y sexo")
-        tabla_demo = df.groupby(["grupo_edad", "sexo"]).size().reset_index(name="Conteo")
-        st.dataframe(tabla_demo, use_container_width=True)
-        st.bar_chart(df.groupby("sexo")["participante_id"].nunique())
+        st.info("No se encontraron columnas 'edad_num' y/o 'sexo' para generar el boxplot.")
+
 
 # =============================
 #  Pruebas

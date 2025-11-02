@@ -20,7 +20,7 @@ st.sidebar.caption("Opciones y navegación")
 BASE_DIR = Path(__file__).resolve().parent
 ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe_merged.csv"
 archivo = st.sidebar.file_uploader("", type=["csv"])
-# ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
+ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
 
 if ARCHIVO_POR_DEFECTO.is_file():
     st.sidebar.download_button(
@@ -31,9 +31,7 @@ if ARCHIVO_POR_DEFECTO.is_file():
         help="Útil para validar el formato esperado antes de subir tus propios datos."
     )
     st.sidebar.info(
-        "Si no subes un archivo propio se cargará automáticamente "
-        f"`{ARCHIVO_POR_DEFECTO.name}`. Puedes reemplazarlo subiendo un CSV "
-        "con el botón anterior o escribiendo una ruta personalizada."
+        ""
     )
 
 # Mapeo de encabezados → nombres canónicos

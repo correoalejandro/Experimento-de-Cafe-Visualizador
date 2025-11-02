@@ -40,11 +40,6 @@ if ARCHIVO_POR_DEFECTO.is_file():
     )
 
 
-'''
-archivo = st.sidebar.file_uploader("", type=["csv"])
-ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
-'''
-
 # Mapeo de encabezados → nombres canónicos
 # Ajusta a tus nombres reales de columnas (ya configurado para tu CSV)
 MAPEO_COLUMNAS = {
@@ -222,7 +217,7 @@ elif pagina == " Exploración":
         desc = desc[["atributo","tipo_cafe","count","mean","std","median"]].sort_values(["atributo","tipo_cafe"])
         st.dataframe(desc, use_container_width=True)
     with col2:
-        st.subheader("Filtros rápidos")
+        st.subheader("Promedio por categoría")
         marcas = sorted(df["tipo_cafe"].dropna().unique().tolist())
         atr = st.selectbox("Atributo", ATRIBUTOS, index=1)
         st.bar_chart(df.groupby("tipo_cafe")[atr].mean())

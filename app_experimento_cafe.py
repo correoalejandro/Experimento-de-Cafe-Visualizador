@@ -26,9 +26,6 @@ pagina = st.sidebar.radio(
 # Archivo por defecto y carga
 BASE_DIR = Path(__file__).resolve().parent
 ARCHIVO_POR_DEFECTO = BASE_DIR / "MuestreoCafe_merged.csv"
-archivo = st.sidebar.file_uploader("", type=["csv"])
-ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
-
 if ARCHIVO_POR_DEFECTO.is_file():
     st.sidebar.download_button(
         "Descargar CSV de ejemplo",
@@ -40,6 +37,10 @@ if ARCHIVO_POR_DEFECTO.is_file():
     st.sidebar.info(
         ""
     )
+
+archivo = st.sidebar.file_uploader("", type=["csv"])
+ruta_manual = st.sidebar.text_input("...o escribe la ruta del CSV", value="")
+
 
 # Mapeo de encabezados → nombres canónicos
 # Ajusta a tus nombres reales de columnas (ya configurado para tu CSV)

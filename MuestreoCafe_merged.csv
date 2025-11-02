@@ -1,0 +1,51 @@
+participante_id,grupo_edad,sexo,tipo_cafe,olor,sabor,acidez,Producto,Temperatura,Hora de consumo,Nombre,Unnamed: 11,olor_likert,sabor_likert,acidez_likert
+1,22,Hombre,Café_de_Colombia,Bueno,Bueno,Baja,1,,8:30:00,Sebastian G,1,5,5,2
+2,22,Mujer,Café_de_Colombia,Bueno,Regular,Alta,1,,8:31:00,Gabi,2,5,3,6
+3,21,Hombre,Café_de_Colombia,Bueno,Bueno,Media,1,,8:32:00,Sergio,3,5,5,4
+4,20,Hombre,Café_de_Colombia,Bueno,Regular,Baja,1,,8:33:00,Daniel Blanco,4,5,3,2
+5,24,Hombre,Café_de_Colombia,Regular,Malo,Baja,1,,8:34:00,Justin,5,3,1,2
+6,22,Hombre,Café_de_Colombia,Bueno,Bueno,Media,1,,8:35:00,Sebastian R,6,5,5,4
+7,18,Hombre,Café_de_Colombia,Excelente,Malo,Media,1,Frío,12:15:00,,7,7,1,4
+8,19,Mujer,Café_de_Colombia,Bueno,Regular,Baja,1,Frío,12:17:00,Sara,8,5,3,2
+9,20,Mujer,Café_de_Colombia,Regular,Bueno,Media,1,Frío,12:18:00,Dayana,9,3,5,4
+10,19,Hombre,Café_de_Colombia,Regular,Bueno,Media,1,Tibio,12:21:00,,10,3,5,4
+11,19,Hombre,Café_de_Colombia,Regular,Regular,Media,1,,12:26:00,Oscar,11,3,3,4
+12,21,Hombre,Café_de_Colombia,Malo,Malo,Baja,1,,12:27:00,Tatiana,12,1,1,2
+13,21,Mujer,Café_de_Colombia,Excelente,Bueno,Alta,1,,12:28:00,Juan Esteban,,7,5,6
+14,23,Hombre,Gómez_Peralta,Regular,Malo,Baja,1,,12:32:00,,1,3,1,2
+15,20,Mujer,Gómez_Peralta,Bueno,Bueno,Alta,2,,10:57:00,Kata,2,5,5,6
+16,26,Hombre,Gómez_Peralta,Bueno,Regular,Media,2,,11:00:00,,3,5,3,4
+17,30,Hombre,Gómez_Peralta,Excelente,Excelente,Alta,2,,11:03:00,,4,7,7,6
+18,28,Hombre,Gómez_Peralta,Bueno,Bueno,Media,2,,11:04:00,,5,5,5,4
+19,20,Mujer,Gómez_Peralta,Excelente,Bueno,Alta,2,,11:07:00,,6,7,5,6
+20,23,Hombre,Gómez_Peralta,Regular,Regular,Baja,2,,11:11:00,,7,3,3,2
+21,19,Mujer,Gómez_Peralta,Bueno,Bueno,Media,2,,11:51:00,,8,5,5,4
+22,20,Mujer,Gómez_Peralta,Bueno,Bueno,Baja,2,,11:52:00,,9,5,5,2
+23,21,Hombre,Gómez_Peralta,Bueno,Regular,Baja,2,,11:52:00,Fajardo,10,5,3,2
+24,20,Mujer,Gómez_Peralta,Regular,Regular,Baja,2,,12:40:00,Amiga Dana,11,3,3,2
+25,21,Mujer,Gómez_Peralta,Regular,Regular,Baja,2,,12:52:00,Dana,12,3,3,2
+26,20,F,Juan_Valdez,Bueno,Regular,Alta,,,,,,5,3,6
+27,20,F,Juan_Valdez,Regular,Bueno,Alta,,,,,,3,5,6
+28,23,M,Juan_Valdez,Bueno,Bueno,Alta,,,,,,5,5,6
+29,36,M,Juan_Valdez,Malo,Regular,Alta,,,,,,1,3,6
+30,20,F,Juan_Valdez,Regular,Regular,Media,,,,,,3,3,4
+31,21,M,Juan_Valdez,Regular,Regular,Media,,,,,,3,3,4
+32,25,M,Juan_Valdez,Regular,Regular,Baja,,,,,,3,3,2
+33,25,M,Juan_Valdez,Regular,Malo,Baja,,,,,,3,1,2
+34,17,M,Juan_Valdez,Regular,Bueno,Baja,,,,,,3,5,2
+35,17,M,Juan_Valdez,Regular,Regular,Alta,,,,,,3,3,6
+36,17,F,Juan_Valdez,Regular,Regular,Baja,,,,,,3,3,2
+37,17,M,Juan_Valdez,Malo,Bueno,Baja,,,,,,1,5,2
+38,20,F,Juan_Valdez,Bueno,Regular,Baja,,,,,,5,3,2
+39,18,M,Cusine_&_co,Bueno,Excelente,Media,,,,,,5,7,4
+40,18,M,Cusine_&_co,Bueno,Bueno,Media,,,,,,5,5,4
+41,21,F,Cusine_&_co,Regular,Regular,Alta,,,,,,3,3,6
+42,24,M,Cusine_&_co,Regular,Regular,Baja,,,,,,3,3,2
+43,18,M,Cusine_&_co,Bueno,Bueno,Media,,,,,,5,5,4
+44,21,F,Cusine_&_co,Bueno,Malo,Alta,,,,,,5,1,6
+45,23,M,Cusine_&_co,Bueno,Bueno,Media,,,,,,5,5,4
+46,17,F,Cusine_&_co,Bueno,Bueno,Baja,,,,,,5,5,2
+47,17,M,Cusine_&_co,Bueno,Bueno,Media,,,,,,5,5,4
+48,21,F,Cusine_&_co,Bueno,Bueno,Media,,,,,,5,5,4
+49,20,F,Cusine_&_co,Bueno,Bueno,Media,,,,,,5,5,4
+50,20,M,Cusine_&_co,Regular,Bueno,Media,,,,,,3,5,4

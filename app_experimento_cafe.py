@@ -14,7 +14,7 @@ st.set_page_config(page_title="Experimento Sensorial de Café", layout="wide")
 # 🧭 Sidebar
 # =============================
 st.sidebar.title("☕ Experimento de Café")
-st.sidebar.caption("Carga de datos, opciones y navegación")
+st.sidebar.caption("Opciones y navegación")
 
 # Archivo por defecto y carga
 BASE_DIR = Path(__file__).resolve().parent

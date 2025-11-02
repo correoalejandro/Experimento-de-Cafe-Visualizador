@@ -340,34 +340,52 @@ elif pagina == "🧪 Pruebas":
     )
 
     st.markdown("---")
-    st.subheader("Interpretación simple")
-    
+    st.subheader("Interpretación")
+
     atr_sel = st.selectbox("Atributo", ATR, index=0, key="atr_interp")
-    solo_sig = st.checkbox("Mostrar solo comparaciones significativas (Holm < 0.05)", value=False)
-    orden = st.radio("Ordenar por", ["p_holm", "dif_media_abs"], index=0, horizontal=True)
 
-    filas = tabla[tabla["atributo"] == atr_sel].copy()
-    filas["dif_media_abs"] = filas["dif_media_a_menos_b"].abs()
-    if solo_sig:
-        filas = filas[filas["p_holm"] < 0.05]
-    filas = filas.sort_values(orden if orden != "dif_media_abs" else ["dif_media_abs"], ascending=True)
+    # 1) Ranking de medias (más fácil de leer)
+    medias = (
+        df.groupby("tipo_cafe")[atr_sel]
+        .mean()
+        .sort_values(ascending=False)
+    )
+    st.markdown("**🏆 Ranking de medias**")
+    for i, (marca, val) in enumerate(medias.items(), start=1):
+        st.markdown(f"{i}. **{marca}** — {val:.2f}")
 
-    if filas.empty:
-        st.info("No hay comparaciones que mostrar con los filtros actuales.")
+    st.markdown("---")
+
+    # 2) Solo comparaciones significativas (Holm < 0.05), ordenadas por p_holm
+    sig = (
+        tabla[(tabla["atributo"] == atr_sel) & (tabla["p_holm"] < 0.05)]
+        .copy()
+        .sort_values("p_holm")
+    )
+
+    st.markdown("**✅ Diferencias significativas (Holm < 0.05)**")
+    if sig.empty:
+        st.info("No se detectaron diferencias significativas para este atributo.")
     else:
-        for _, r in filas.iterrows():
+        for _, r in sig.iterrows():
             a, b = r["cafe_a"], r["cafe_b"]
             diff  = r["dif_media_a_menos_b"]
             ci_lo, ci_hi = r["ci95_inf"], r["ci95_sup"]
-            p_adj = r["p_holm"]
-            g = r.get("hedges_g", np.nan)
-            sentido = "mayor" if diff > 0 else ("menor" if diff < 0 else "igual")
-            efecto_txt = "" if (isinstance(g, float) and np.isnan(g)) else f", g={g:.2f}"
+            arrow = "→" if diff > 0 else "←"
             st.markdown(
-                f"- **{atr_sel.capitalize()}**: **{a}** es {sentido} que **{b}** por **{abs(diff):.2f}** "
-                f"(IC95% [{ci_lo:.2f}, {ci_hi:.2f}], p(Holm)={p_adj:.4f}"
-                f"{' ✅' if p_adj < 0.05 else ''}{efecto_txt})."
+                f"- **{a} {arrow} {b}**: Δ = **{abs(diff):.2f}** "
+                f"(IC95% [{ci_lo:.2f}, {ci_hi:.2f}]; p(Holm) = {r['p_holm']:.4f})"
             )
+
+    # (Opcional) botón para ver todas las comparaciones en bruto
+    with st.expander("Ver todas las comparaciones (completo)"):
+        todas = tabla[tabla["atributo"] == atr_sel].copy()
+        todas["Δ_abs"] = todas["dif_media_a_menos_b"].abs()
+        st.dataframe(
+            todas.sort_values(["p_holm","Δ_abs"]),
+            use_container_width=True
+        )
+
 
 
 # =============================

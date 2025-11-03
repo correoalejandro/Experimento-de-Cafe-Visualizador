@@ -232,7 +232,7 @@ elif pagina == " Exploración":
     # --- Funciones auxiliares ---
 
     def render_distribuciones(df_local, atributos):
-        """Comparación de marcas por atributo."""
+        """Comparación de marcas (boxplots dinámicos)."""
         st.subheader("Comparación de marcas por atributo")
         atributo = st.selectbox("Atributo", atributos, index=0)
         marcas = sorted(df_local["tipo_cafe"].dropna().unique().tolist())

@@ -330,53 +330,53 @@ elif pagina == " Exploración":
         return None
 
     def render_boxplots_edad(dataframe: pd.DataFrame) -> None:
-    """Boxplots de edad general y por sexo (si existe), en dos columnas."""
-    st.subheader("🧑‍🤝‍🧑 Boxplots de edad")
+        """Boxplots de edad general y por sexo (si existe), en dos columnas."""
+        st.subheader("🧑‍🤝‍🧑 Boxplots de edad")
 
-    dataframe_box = dataframe.copy()
-    if "edad_num" not in dataframe_box.columns:
-        if "grupo_edad" in dataframe_box.columns:
-            dataframe_box["edad_num"] = dataframe_box["grupo_edad"].map(_midpoint)
-            print("[DEBUG] edad_num construida a partir de grupo_edad")
-        else:
-            st.info("No hay 'edad_num' ni 'grupo_edad' para construir boxplots de edad.")
+        dataframe_box = dataframe.copy()
+        if "edad_num" not in dataframe_box.columns:
+            if "grupo_edad" in dataframe_box.columns:
+                dataframe_box["edad_num"] = dataframe_box["grupo_edad"].map(_midpoint)
+                print("[DEBUG] edad_num construida a partir de grupo_edad")
+            else:
+                st.info("No hay 'edad_num' ni 'grupo_edad' para construir boxplots de edad.")
+                return
+
+        dataframe_box = dataframe_box.dropna(subset=["edad_num"])
+        if dataframe_box.empty:
+            st.info("No hay datos de edad para graficar.")
             return
 
-    dataframe_box = dataframe_box.dropna(subset=["edad_num"])
-    if dataframe_box.empty:
-        st.info("No hay datos de edad para graficar.")
-        return
+        col_izq, col_der = st.columns(2)
 
-    col_izq, col_der = st.columns(2)
-
-    # --- A) General ---
-    with col_izq:
-        st.markdown("**General**")
-        grafico_general = (
-            alt.Chart(dataframe_box)
-            .mark_boxplot(size=60)
-            .encode(y=alt.Y("edad_num:Q", title="Edad"))
-            .properties(width=400, height=300)
-        )
-        st.altair_chart(grafico_general, use_container_width=True)
-
-    # --- B) Por sexo ---
-    with col_der:
-        if "sexo" in dataframe_box.columns:
-            st.markdown("**Por sexo**")
-            grafico_sexo = (
+        # --- A) General ---
+        with col_izq:
+            st.markdown("**General**")
+            grafico_general = (
                 alt.Chart(dataframe_box)
-                .mark_boxplot(size=40)
-                .encode(
-                    x=alt.X("sexo:N", title="Sexo"),
-                    y=alt.Y("edad_num:Q", title="Edad"),
-                    color="sexo:N"
-                )
+                .mark_boxplot(size=60)
+                .encode(y=alt.Y("edad_num:Q", title="Edad"))
                 .properties(width=400, height=300)
             )
-            st.altair_chart(grafico_sexo, use_container_width=True)
-        else:
-            st.info("No se encontró la columna 'sexo' para el boxplot por sexo.")
+            st.altair_chart(grafico_general, use_container_width=True)
+
+        # --- B) Por sexo ---
+        with col_der:
+            if "sexo" in dataframe_box.columns:
+                st.markdown("**Por sexo**")
+                grafico_sexo = (
+                    alt.Chart(dataframe_box)
+                    .mark_boxplot(size=40)
+                    .encode(
+                        x=alt.X("sexo:N", title="Sexo"),
+                        y=alt.Y("edad_num:Q", title="Edad"),
+                        color="sexo:N"
+                    )
+                    .properties(width=400, height=300)
+                )
+                st.altair_chart(grafico_sexo, use_container_width=True)
+            else:
+                st.info("No se encontró la columna 'sexo' para el boxplot por sexo.")
 
     # -----------------------------------
     # 4) Render dinámico por tabs válidos

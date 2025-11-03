@@ -201,106 +201,159 @@ if pagina == "🏠 Inicio":
     )
 
 # =============================
-#  Exploración
+#  Exploración (tabs dinámicos)
 # =============================
 elif pagina == " Exploración":
+    import altair as alt
+    import numpy as np
+    import re
+    import streamlit as st
+    import pandas as pd
+
     st.title(" Exploración de datos")
-    col1, col2 = st.columns([2,1])
-    with col1:
+
+    # -------------------------
+    # 1) Chequeos de columnas
+    # -------------------------
+    atributos_presentes = [a for a in ATRIBUTOS if a in df.columns]
+    tiene_tipo_cafe = "tipo_cafe" in df.columns
+    tiene_demografia = ("edad_num" in df.columns) or ("grupo_edad" in df.columns)
+    tiene_sexo = "sexo" in df.columns
+
+    print(f"[DEBUG] atributos_presentes={atributos_presentes}")
+    print(f"[DEBUG] tiene_tipo_cafe={tiene_tipo_cafe}, tiene_demografia={tiene_demografia}, tiene_sexo={tiene_sexo}")
+
+    # -----------------------------------
+    # 2) Registrar qué tabs sí se pueden
+    # -----------------------------------
+    tabs_definicion = []
+
+    # Descriptivos: requiere tipo_cafe y al menos un atributo
+    if tiene_tipo_cafe and atributos_presentes:
+        tabs_definicion.append(("Descriptivos", "render_descriptivos"))
+
+    # Promedios: requiere tipo_cafe y al menos un atributo
+    if tiene_tipo_cafe and atributos_presentes:
+        tabs_definicion.append(("Promedios", "render_promedios"))
+
+    # Distribuciones por marca (boxplot): requiere tipo_cafe y al menos un atributo
+    if tiene_tipo_cafe and atributos_presentes:
+        tabs_definicion.append(("Distribuciones por marca", "render_distribuciones"))
+
+    # Boxplots de edad: requiere edad_num o grupo_edad (sexo es opcional)
+    if tiene_demografia:
+        tabs_definicion.append(("Edad (boxplots)", "render_boxplots_edad"))
+
+    print(f"[DEBUG] tabs_definicion={tabs_definicion}")
+
+    if not tabs_definicion:
+        st.info("No hay suficientes columnas para mostrar secciones de exploración.")
+        st.stop()
+
+    # -----------------------------------
+    # 3) Helpers para cada tab
+    # -----------------------------------
+    def render_descriptivos(dataframe: pd.DataFrame, atributos: list[str]) -> None:
         st.subheader("Descriptivos por marca y atributo")
-        piezas = []
-        for atr in ATRIBUTOS:
-            g = df.groupby("tipo_cafe")[atr].agg(["count", "mean", "std", "median"])
-            g["atributo"] = atr
-            piezas.append(g.reset_index())
-        desc = pd.concat(piezas, ignore_index=True)
-        desc = desc[["atributo","tipo_cafe","count","mean","std","median"]].sort_values(["atributo","tipo_cafe"])
-        st.dataframe(desc, use_container_width=True)
-    with col2:
+        piezas: list[pd.DataFrame] = []
+        for atributo in atributos:
+            tabla = (
+                dataframe.groupby("tipo_cafe")[atributo]
+                .agg(["count", "mean", "std", "median"])
+                .reset_index()
+            )
+            tabla.insert(0, "atributo", atributo)
+            piezas.append(tabla)
+        descriptivos = (
+            pd.concat(piezas, ignore_index=True)
+            .loc[:, ["atributo", "tipo_cafe", "count", "mean", "std", "median"]]
+            .sort_values(["atributo", "tipo_cafe"])
+        )
+        st.dataframe(descriptivos, use_container_width=True)
+
+    def render_promedios(dataframe: pd.DataFrame, atributos: list[str]) -> None:
         st.subheader("Promedio por categoría")
-        marcas = sorted(df["tipo_cafe"].dropna().unique().tolist())
-        atr = st.selectbox("Atributo", ATRIBUTOS, index=1)
-        st.bar_chart(df.groupby("tipo_cafe")[atr].mean())
+        marcas_unicas = sorted(dataframe["tipo_cafe"].dropna().unique().tolist())
+        atributo_seleccionado = st.selectbox("Atributo", atributos, index=0)
+        promedio = dataframe.groupby("tipo_cafe")[atributo_seleccionado].mean()
+        st.bar_chart(promedio)
+        st.caption(f"[DEBUG] Marcas detectadas: {len(marcas_unicas)}")
 
-    st.markdown("---")
-    st.subheader("Distribuciones por marca")
+    def render_distribuciones(dataframe: pd.DataFrame, atributos: list[str]) -> None:
+        st.subheader("Distribuciones por marca")
+        atributo_seleccionado = st.selectbox(
+            "Selecciona el atributo a visualizar",
+            atributos,
+            index=0
+        )
+        marcas_disponibles = sorted(dataframe["tipo_cafe"].dropna().unique().tolist())
+        marcas_seleccionadas = st.multiselect(
+            "Marcas a comparar",
+            marcas_disponibles,
+            default=marcas_disponibles
+        )
+        if not marcas_seleccionadas:
+            st.info("Selecciona al menos una marca para mostrar el gráfico.")
+            return
 
-    # 1️⃣ Selector de atributo y marcas
-    atributo = st.selectbox(
-        "Selecciona el atributo a visualizar",
-        ["olor", "sabor", "acidez"],
-        index=0
-    )
-
-    marcas = sorted(df["tipo_cafe"].dropna().unique().tolist())
-    seleccion = st.multiselect("Marcas a comparar", marcas, default=marcas)
-
-    # 2️⃣ Generar boxplot dinámico
-    if seleccion:
-        subset = df[df["tipo_cafe"].isin(seleccion)][["tipo_cafe", atributo]].dropna()
-
-        import altair as alt
-        chart = (
+        subset = (
+            dataframe[dataframe["tipo_cafe"].isin(marcas_seleccionadas)]
+            [["tipo_cafe", atributo_seleccionado]].dropna()
+        )
+        grafico = (
             alt.Chart(subset)
             .mark_boxplot(size=40)
             .encode(
                 x=alt.X("tipo_cafe:N", title="Marca de café"),
-                y=alt.Y(f"{atributo}:Q", title=f"Puntuación de {atributo}"),
+                y=alt.Y(f"{atributo_seleccionado}:Q", title=f"Puntuación de {atributo_seleccionado}"),
                 color="tipo_cafe:N"
             )
             .properties(width=600, height=400)
         )
-        st.altair_chart(chart, use_container_width=True)
-    else:
-        st.info("Selecciona al menos una marca para mostrar el gráfico.")
+        st.altair_chart(grafico, use_container_width=True)
 
-    # --- Distribución demográfica ---
-    # --- Boxplots de edad (general y por sexo) ---
-    st.markdown("### 🧑‍🤝‍🧑 Boxplots de edad")
+    def _midpoint(rango: str) -> float | None:
+        # "18-30" -> 24; "31–50" -> 40; "51+" -> 51 aprox
+        numeros = re.findall(r"\d+", str(rango))
+        if len(numeros) >= 2:
+            a, b = map(int, numeros[:2])
+            return (a + b) / 2
+        if len(numeros) == 1:
+            return float(numeros[0])
+        return None
 
-    # 1) Asegurar edad numérica: usar 'edad_num' si existe; si no, aproximar desde 'grupo_edad'
-    df_box = df.copy()
+    def render_boxplots_edad(dataframe: pd.DataFrame) -> None:
+        st.subheader("🧑‍🤝‍🧑 Boxplots de edad")
 
-    if "edad_num" not in df_box.columns:
-        if "grupo_edad" in df_box.columns:
-            import re
-            def _midpoint(rango):
-                # Ej.: "18-30" -> 24; "31–50" -> 40; "51+" -> 51 (aprox)
-                s = str(rango)
-                m = re.findall(r"\d+", s)
-                if len(m) >= 2:
-                    a, b = map(int, m[:2])
-                    return (a + b) / 2
-                elif len(m) == 1:
-                    return float(m[0])  # caso "51+"
-                return None
-            df_box["edad_num"] = df_box["grupo_edad"].map(_midpoint)
-        else:
-            st.info("No hay 'edad_num' ni 'grupo_edad' para construir boxplots de edad.")
-            df_box["edad_num"] = np.nan
+        dataframe_box = dataframe.copy()
+        if "edad_num" not in dataframe_box.columns:
+            if "grupo_edad" in dataframe_box.columns:
+                dataframe_box["edad_num"] = dataframe_box["grupo_edad"].map(_midpoint)
+                print("[DEBUG] edad_num construida a partir de grupo_edad")
+            else:
+                st.info("No hay 'edad_num' ni 'grupo_edad' para construir boxplots de edad.")
+                return
 
-    df_box = df_box.dropna(subset=["edad_num"])
+        dataframe_box = dataframe_box.dropna(subset=["edad_num"])
+        if dataframe_box.empty:
+            st.info("No hay datos de edad para graficar.")
+            return
 
-    if df_box.empty:
-        st.info("No hay datos de edad para graficar.")
-    else:
-        import altair as alt
-
-        # A) Boxplot general (toda la muestra)
+        # A) General
         st.markdown("**General**")
-        chart_box_general = (
-            alt.Chart(df_box)
+        grafico_general = (
+            alt.Chart(dataframe_box)
             .mark_boxplot(size=60)
             .encode(y=alt.Y("edad_num:Q", title="Edad"))
             .properties(width=500, height=250)
         )
-        st.altair_chart(chart_box_general, use_container_width=True)
+        st.altair_chart(grafico_general, use_container_width=True)
 
-        # B) Boxplot por sexo
-        if "sexo" in df_box.columns:
+        # B) Por sexo (solo si existe)
+        if "sexo" in dataframe_box.columns:
             st.markdown("**Por sexo**")
-            chart_box_sexo = (
-                alt.Chart(df_box)
+            grafico_sexo = (
+                alt.Chart(dataframe_box)
                 .mark_boxplot(size=40)
                 .encode(
                     x=alt.X("sexo:N", title="Sexo"),
@@ -309,9 +362,28 @@ elif pagina == " Exploración":
                 )
                 .properties(width=600, height=350)
             )
-            st.altair_chart(chart_box_sexo, use_container_width=True)
+            st.altair_chart(grafico_sexo, use_container_width=True)
         else:
             st.info("No se encontró la columna 'sexo' para el boxplot por sexo.")
+
+    # -----------------------------------
+    # 4) Render dinámico por tabs válidos
+    # -----------------------------------
+    etiquetas_tabs = [nombre for nombre, _ in tabs_definicion]
+    st.markdown("---")
+    tabs = st.tabs(etiquetas_tabs)
+    print(f"[DEBUG] etiquetas_tabs={etiquetas_tabs}")
+
+    for indice, (nombre_tab, funcion_id) in enumerate(tabs_definicion):
+        with tabs[indice]:
+            if funcion_id == "render_descriptivos":
+                render_descriptivos(df, atributos_presentes)
+            elif funcion_id == "render_promedios":
+                render_promedios(df, atributos_presentes)
+            elif funcion_id == "render_distribuciones":
+                render_distribuciones(df, atributos_presentes)
+            elif funcion_id == "render_boxplots_edad":
+                render_boxplots_edad(df)
 
 # =============================
 #  Pruebas

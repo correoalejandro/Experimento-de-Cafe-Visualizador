@@ -225,22 +225,19 @@ elif pagina == " Exploración":
 
     # -----------------------------------
     # 2) Registrar qué tabs sí se pueden
+    #    (orden requerido por el usuario)
     # -----------------------------------
     tabs_definicion = []
 
-    # Descriptivos: requiere tipo_cafe y al menos un atributo
+    # 1) Marcas por atributo (antes "Distribuciones por marca")
+    if tiene_tipo_cafe and atributos_presentes:
+        tabs_definicion.append(("Marcas por atributo", "render_marcas_por_atributo"))
+
+    # 2) Descriptivos (con columna de Promedios incluida dentro)
     if tiene_tipo_cafe and atributos_presentes:
         tabs_definicion.append(("Descriptivos", "render_descriptivos"))
 
-    # Promedios: requiere tipo_cafe y al menos un atributo
-    if tiene_tipo_cafe and atributos_presentes:
-        tabs_definicion.append(("Promedios", "render_promedios"))
-
-    # Distribuciones por marca (boxplot): requiere tipo_cafe y al menos un atributo
-    if tiene_tipo_cafe and atributos_presentes:
-        tabs_definicion.append(("Distribuciones por marca", "render_distribuciones"))
-
-    # Boxplots de edad: requiere edad_num o grupo_edad (sexo es opcional)
+    # 3) Edad (boxplots) — demografía opcional
     if tiene_demografia:
         tabs_definicion.append(("Edad (boxplots)", "render_boxplots_edad"))
 
@@ -253,34 +250,9 @@ elif pagina == " Exploración":
     # -----------------------------------
     # 3) Helpers para cada tab
     # -----------------------------------
-    def render_descriptivos(dataframe: pd.DataFrame, atributos: list[str]) -> None:
-        st.subheader("Descriptivos por marca y atributo")
-        piezas: list[pd.DataFrame] = []
-        for atributo in atributos:
-            tabla = (
-                dataframe.groupby("tipo_cafe")[atributo]
-                .agg(["count", "mean", "std", "median"])
-                .reset_index()
-            )
-            tabla.insert(0, "atributo", atributo)
-            piezas.append(tabla)
-        descriptivos = (
-            pd.concat(piezas, ignore_index=True)
-            .loc[:, ["atributo", "tipo_cafe", "count", "mean", "std", "median"]]
-            .sort_values(["atributo", "tipo_cafe"])
-        )
-        st.dataframe(descriptivos, use_container_width=True)
-
-    def render_promedios(dataframe: pd.DataFrame, atributos: list[str]) -> None:
-        st.subheader("Promedio por categoría")
-        marcas_unicas = sorted(dataframe["tipo_cafe"].dropna().unique().tolist())
-        atributo_seleccionado = st.selectbox("Atributo", atributos, index=0)
-        promedio = dataframe.groupby("tipo_cafe")[atributo_seleccionado].mean()
-        st.bar_chart(promedio)
-        st.caption(f"[DEBUG] Marcas detectadas: {len(marcas_unicas)}")
-
-    def render_distribuciones(dataframe: pd.DataFrame, atributos: list[str]) -> None:
-        st.subheader("Distribuciones por marca")
+    def render_marcas_por_atributo(dataframe: pd.DataFrame, atributos: list[str]) -> None:
+        """Boxplots por marca para un atributo elegido."""
+        st.subheader("Marcas por atributo")
         atributo_seleccionado = st.selectbox(
             "Selecciona el atributo a visualizar",
             atributos,
@@ -300,6 +272,8 @@ elif pagina == " Exploración":
             dataframe[dataframe["tipo_cafe"].isin(marcas_seleccionadas)]
             [["tipo_cafe", atributo_seleccionado]].dropna()
         )
+        print(f"[DEBUG] atributo_seleccionado={atributo_seleccionado}, n={len(subset)}")
+
         grafico = (
             alt.Chart(subset)
             .mark_boxplot(size=40)
@@ -312,8 +286,42 @@ elif pagina == " Exploración":
         )
         st.altair_chart(grafico, use_container_width=True)
 
+    def render_descriptivos(dataframe: pd.DataFrame, atributos: list[str]) -> None:
+        """Descriptivos por marca y atributo, con una columna lateral de promedios."""
+        st.subheader("Descriptivos por marca y atributo")
+        columna_izquierda, columna_derecha = st.columns([2, 1])
+
+        # --- Tabla de descriptivos (izquierda) ---
+        with columna_izquierda:
+            piezas: list[pd.DataFrame] = []
+            for atributo in atributos:
+                tabla = (
+                    dataframe.groupby("tipo_cafe")[atributo]
+                    .agg(["count", "mean", "std", "median"])
+                    .reset_index()
+                )
+                tabla.insert(0, "atributo", atributo)
+                piezas.append(tabla)
+
+            descriptivos = (
+                pd.concat(piezas, ignore_index=True)
+                .loc[:, ["atributo", "tipo_cafe", "count", "mean", "std", "median"]]
+                .sort_values(["atributo", "tipo_cafe"])
+            )
+            st.dataframe(descriptivos, use_container_width=True)
+            print(f"[DEBUG] descriptivos_rows={len(descriptivos)}")
+
+        # --- Promedio por categoría (derecha) ---
+        with columna_derecha:
+            st.subheader("Promedio por categoría")
+            marcas_unicas = sorted(dataframe["tipo_cafe"].dropna().unique().tolist())
+            atributo_para_promedio = st.selectbox("Atributo", atributos, index=0, key="atributo_promedio")
+            serie_promedio = dataframe.groupby("tipo_cafe")[atributo_para_promedio].mean()
+            st.bar_chart(serie_promedio)
+            st.caption(f"[DEBUG] Marcas detectadas: {len(marcas_unicas)}")
+
     def _midpoint(rango: str) -> float | None:
-        # "18-30" -> 24; "31–50" -> 40; "51+" -> 51 aprox
+        """Convierte grupo de edad textual a punto medio numérico (p. ej., '18-30' -> 24)."""
         numeros = re.findall(r"\d+", str(rango))
         if len(numeros) >= 2:
             a, b = map(int, numeros[:2])
@@ -323,6 +331,7 @@ elif pagina == " Exploración":
         return None
 
     def render_boxplots_edad(dataframe: pd.DataFrame) -> None:
+        """Boxplots de edad general y por sexo (si existe)."""
         st.subheader("🧑‍🤝‍🧑 Boxplots de edad")
 
         dataframe_box = dataframe.copy()
@@ -376,12 +385,10 @@ elif pagina == " Exploración":
 
     for indice, (nombre_tab, funcion_id) in enumerate(tabs_definicion):
         with tabs[indice]:
-            if funcion_id == "render_descriptivos":
+            if funcion_id == "render_marcas_por_atributo":
+                render_marcas_por_atributo(df, atributos_presentes)
+            elif funcion_id == "render_descriptivos":
                 render_descriptivos(df, atributos_presentes)
-            elif funcion_id == "render_promedios":
-                render_promedios(df, atributos_presentes)
-            elif funcion_id == "render_distribuciones":
-                render_distribuciones(df, atributos_presentes)
             elif funcion_id == "render_boxplots_edad":
                 render_boxplots_edad(df)
 

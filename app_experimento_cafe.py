@@ -229,18 +229,26 @@ elif pagina == " Exploración":
     # -----------------------------------
     tabs_definicion = []
 
-    # 1) Marcas por atributo (antes "Distribuciones por marca")
-    if tiene_tipo_cafe and atributos_presentes:
-        tabs_definicion.append(("Marcas por atributo", "render_marcas_por_atributo"))
+    # (A) Pruebas de supuestos
+    if tiene_tipo_cafe and tiene_atributos:
+        tabs_definicion.append(("Pruebas de supuestos", "render_supuestos"))
 
-    # 2) Descriptivos (con columna de Promedios incluida dentro)
-    if tiene_tipo_cafe and atributos_presentes:
-        tabs_definicion.append(("Descriptivos", "render_descriptivos"))
+    # (ANOVA de un factor) — requiere ≥ 2 marcas y atributos
+    if tiene_tipo_cafe and tiene_atributos and hay_al_menos_dos_marcas:
+        tabs_definicion.append(("ANOVA de un factor", "render_anova_un_factor"))
 
-    # 3) Edades y sexo — demografía
-        tabs_definicion.append(("Edades y sexo", "render_boxplots_edad"))
+    # (B) Resultados (Welch)
+    if tiene_tipo_cafe and tiene_atributos and hay_al_menos_dos_marcas:
+        tabs_definicion.append(("Resultados (Welch)", "render_resultados_welch"))
 
-    print(f"[DEBUG] tabs_definicion={tabs_definicion}")
+    # (C) Interpretación
+    if tiene_tipo_cafe and tiene_atributos and hay_al_menos_dos_marcas:
+        tabs_definicion.append(("Interpretación", "render_interpretacion"))
+
+    # (D) Comparaciones por sexo
+    if tiene_tipo_cafe and tiene_atributos and tiene_sexo:
+        tabs_definicion.append(("Comparaciones por sexo", "render_por_sexo"))
+        print(f"[DEBUG] tabs_definicion={tabs_definicion}")
 
     if not tabs_definicion:
         st.info("No hay suficientes columnas para mostrar secciones de exploración.")
@@ -433,7 +441,7 @@ elif pagina == " Pruebas":
     # -----------------------------------
     # 2) Registrar tabs que sí se pueden
     # -----------------------------------
-    tabs_definicion = []
+    
 
     # (A) Pruebas de supuestos: requiere atributos y algún dato
     if tiene_tipo_cafe and tiene_atributos:
@@ -497,7 +505,59 @@ elif pagina == " Pruebas":
         for rank, idx in enumerate(orden, start=1):
             ajust[idx] = min((m - rank + 1) * pvals[idx], 1.0)
         return ajust
+    ##
+    import streamlit as st
+    import pandas as pd
+    from statsmodels.formula.api import ols
+    import statsmodels.api as sm
+    from scipy.stats import levene, shapiro
+    from scipy import stats
 
+    st.title("Demo ANOVA Café")
+
+    # Carga
+    df = pd.read_csv("datos_cafe.csv")  # usa tu archivo
+    ATRIBUTOS = [c for c in ["olor", "sabor", "acidez"] if c in df.columns]
+    ATR = ATRIBUTOS
+
+    def render_supuestos():
+        st.subheader("Pruebas de supuestos")
+        for atr in ATR:
+            grupos = [g[atr].dropna() for _, g in df.groupby("tipo_cafe")]
+            if len(grupos) >= 2 and all(len(g) > 2 for g in grupos):
+                _, p_lev = levene(*grupos)
+                _, p_sh = shapiro(df[atr].dropna())
+                st.write(f"{atr}: Levene p={p_lev:.3f} | Shapiro p={p_sh:.3f}")
+            else:
+                st.info(f"No hay datos suficientes en {atr}.")
+
+    def render_anova_un_factor(df, atributos):
+        st.subheader("ANOVA de un factor (marca de café)")
+        for atr in atributos:
+            st.write(f"**Atributo:** {atr}")
+            modelo = ols(f"{atr} ~ C(tipo_cafe)", data=df).fit()
+            tabla = sm.stats.anova_lm(modelo, typ=2)
+            st.dataframe(tabla, use_container_width=True)
+            pval = tabla["PR(>F)"].iloc[0]
+            if pval < 0.05:
+                st.success(f"p = {pval:.4f} → hay diferencias significativas entre marcas para {atr}.")
+            else:
+                st.info(f"p = {pval:.4f} → no hay diferencias significativas entre marcas para {atr}.")
+
+    tabs_definicion = [("Pruebas de supuestos", "render_supuestos"),
+                    ("ANOVA de un factor", "render_anova_un_factor")]
+    tabs = st.tabs([t[0] for t in tabs_definicion])
+
+    with tabs[0]:
+        render_supuestos()
+    with tabs[1]:
+        render_anova_un_factor(df, ATR)
+
+
+
+
+
+    ##
     # -----------------------------------
     # 4) Render functions por tab
     # -----------------------------------
@@ -681,13 +741,26 @@ elif pagina == " Pruebas":
     for idx, (nombre_tab, funcion_id) in enumerate(tabs_definicion):
         with tabs[idx]:
             if funcion_id == "render_supuestos":
+                print("[DEBUG] Entrando en render_supuestos")
                 render_supuestos()
+
+            elif funcion_id == "render_anova_un_factor":
+                print(f"[DEBUG] Entrando en render_anova_un_factor con atributos: {ATR}")
+                render_anova_un_factor(df, ATR)
+
             elif funcion_id == "render_resultados_welch":
+                print("[DEBUG] Entrando en render_resultados_welch")
                 render_resultados_welch()
+
             elif funcion_id == "render_interpretacion":
+                print("[DEBUG] Entrando en render_interpretacion")
                 render_interpretacion()
+
             elif funcion_id == "render_por_sexo":
+                print("[DEBUG] Entrando en render_por_sexo")
                 render_por_sexo()
+
+                    render_por_sexo()
 
 # =============================
 #  Ayuda

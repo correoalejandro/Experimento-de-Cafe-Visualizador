@@ -452,10 +452,6 @@ elif pagina == " Pruebas":
     if tiene_tipo_cafe and tiene_atributos and tiene_sexo:
         tabs_definicion.append(("Comparaciones por sexo", "render_por_sexo"))
 
-
-
-
-
     print(f"[DEBUG] tabs_definicion={tabs_definicion}")
 
     if not tabs_definicion:
@@ -465,378 +461,215 @@ elif pagina == " Pruebas":
     # -----------------------------------
     # 3) Utilidades estadísticas (Welch)
     # -----------------------------------
-    
-        def anova():
-            from scipy.stats import f_oneway
-
-            f_statistic, p_value = f_oneway(performance1, performance2, performance3, performance4)
-
-            print(f"F-statistic: {f_statistic}")
-            print(f"P-value: {p_value}")
-
-
-            
-        def hedges_g_ind(valores_a: np.ndarray, valores_b: np.ndarray) -> float:
-            """Hedges g para grupos independientes (aprox. aun con varianzas desiguales)."""
-            na, nb = len(valores_a), len(valores_b)
-            sa2, sb2 = np.var(valores_a, ddof=1), np.var(valores_b, ddof=1)
-            if (na + nb - 2) <= 0:
-                return np.nan
-            sp = np.sqrt(((na - 1) * sa2 + (nb - 1) * sb2) / (na + nb - 2))
-            if sp <= 0:
-                return np.nan
-            d = (np.mean(valores_a) - np.mean(valores_b)) / sp
-            J = 1 - 3 / (4 * (na + nb) - 9) if (na + nb) > 2 else 1.0
-            return d * J
-
-        def welch_df(sa2: float, na: int, sb2: float, nb: int) -> float:
-            num = (sa2 / na + sb2 / nb) ** 2
-            den = (sa2 ** 2) / (na ** 2 * (na - 1)) + (sb2 ** 2) / (nb ** 2 * (nb - 1))
-            return num / den
-
-        def welch_ci(a: np.ndarray, b: np.ndarray, alpha: float = 0.05):
-            """IC para diferencia de medias (A-B) con Welch."""
-            na, nb = len(a), len(b)
-            ma, mb = np.mean(a), np.mean(b)
-            sa2, sb2 = np.var(a, ddof=1), np.var(b, ddof=1)
-            se = np.sqrt(sa2 / na + sb2 / nb)
-            dfw = welch_df(sa2, na, sb2, nb)
-            tcrit = stats.t.ppf(1 - alpha / 2, dfw)
-            diff = ma - mb
-            return diff, (diff - tcrit * se, diff + tcrit * se), dfw, se
-
-        def holm(pvals: np.ndarray) -> np.ndarray:
-            orden = np.argsort(pvals)
-            m = len(pvals)
-            ajust = np.empty_like(pvals, dtype=float)
-            for rank, idx in enumerate(orden, start=1):
-                ajust[idx] = min((m - rank + 1) * pvals[idx], 1.0)
-            return ajust
-
-
-
-        #########
-        import numpy as np
-    import pandas as pd
-    import streamlit as st
-    from scipy import stats
-    import statsmodels.api as sm
-    from statsmodels.formula.api import ols
-    from statsmodels.stats.multicomp import pairwise_tukeyhsd
-
-    def _eta_cuadrado(tabla_anova: pd.DataFrame) -> float:
-        # Para typ=2: SS entre = suma de SS de los factores (aquí solo C(tipo_cafe))
-        # SS total = SS entre + SS residuo
-        try:
-            ss_entre = float(tabla_anova.loc["C(tipo_cafe)", "sum_sq"])
-            ss_res = float(tabla_anova.loc["Residual", "sum_sq"])
-            eta2 = ss_entre / (ss_entre + ss_res) if (ss_entre + ss_res) > 0 else np.nan
-            return eta2
-        except Exception as e:
-            print(f"[DEBUG] _eta_cuadrado falló: {e}")
+    def hedges_g_ind(valores_a: np.ndarray, valores_b: np.ndarray) -> float:
+        """Hedges g para grupos independientes (aprox. aun con varianzas desiguales)."""
+        na, nb = len(valores_a), len(valores_b)
+        sa2, sb2 = np.var(valores_a, ddof=1), np.var(valores_b, ddof=1)
+        if (na + nb - 2) <= 0:
             return np.nan
+        sp = np.sqrt(((na - 1) * sa2 + (nb - 1) * sb2) / (na + nb - 2))
+        if sp <= 0:
+            return np.nan
+        d = (np.mean(valores_a) - np.mean(valores_b)) / sp
+        J = 1 - 3 / (4 * (na + nb) - 9) if (na + nb) > 2 else 1.0
+        return d * J
 
-    def _diagnosticos_basicos(residuos: np.ndarray, grupos_series: pd.Series):
-        # Normalidad de residuos (Shapiro) y homogeneidad de varianzas (Levene)
-        p_shapiro = np.nan
-        p_levene = np.nan
-        try:
-            if len(residuos) >= 3 and len(residuos) <= 5000:
-                _, p_shapiro = stats.shapiro(residuos)
-        except Exception as e:
-            print(f"[DEBUG] Shapiro falló: {e}")
+    def welch_df(sa2: float, na: int, sb2: float, nb: int) -> float:
+        num = (sa2 / na + sb2 / nb) ** 2
+        den = (sa2 ** 2) / (na ** 2 * (na - 1)) + (sb2 ** 2) / (nb ** 2 * (nb - 1))
+        return num / den
 
-        try:
-            grupos = [g.dropna().values for _, g in grupos_series.groupby(grupos_series.index)]
-            # el grouping anterior no separa por marca; rearmamos por categoría:
-            grupos = []
-            for nombre, sub in grupos_series.groupby(grupos_series):
-                grupos.append(sub.index)
-            # Más directo: construir listas de valores por marca usando el índice original
-            # (este bloque se remplaza por una versión clara usando el DataFrame)
-        except Exception:
-            pass  # lo hacemos de forma robusta abajo con el DataFrame original
+    def welch_ci(a: np.ndarray, b: np.ndarray, alpha: float = 0.05):
+        """IC para diferencia de medias (A-B) con Welch."""
+        na, nb = len(a), len(b)
+        ma, mb = np.mean(a), np.mean(b)
+        sa2, sb2 = np.var(a, ddof=1), np.var(b, ddof=1)
+        se = np.sqrt(sa2 / na + sb2 / nb)
+        dfw = welch_df(sa2, na, sb2, nb)
+        tcrit = stats.t.ppf(1 - alpha / 2, dfw)
+        diff = ma - mb
+        return diff, (diff - tcrit * se, diff + tcrit * se), dfw, se
 
-        return p_shapiro, p_levene  # p_levene lo calculamos dentro del render (necesita los grupos)
+    def holm(pvals: np.ndarray) -> np.ndarray:
+        orden = np.argsort(pvals)
+        m = len(pvals)
+        ajust = np.empty_like(pvals, dtype=float)
+        for rank, idx in enumerate(orden, start=1):
+            ajust[idx] = min((m - rank + 1) * pvals[idx], 1.0)
+        return ajust
 
-    def render_anova_un_factor(df: pd.DataFrame, atributos: list[str]):
-        st.markdown("### 📈 ANOVA de un factor (marca de café)")
-
-        if "tipo_cafe" not in df.columns:
-            st.warning("No encuentro la columna 'tipo_cafe'.")
-            return
-
-        marcas = [m for m in df["tipo_cafe"].dropna().unique() if str(m).strip() != ""]
-        if len(marcas) < 2:
-            st.info("Se requieren al menos dos marcas para ANOVA.")
-            return
-
-        for atr in atributos:
-            if atr not in df.columns:
-                continue
-
-            st.write(f"#### Atributo: {atr.capitalize()}")
-
-            # Filtrado de NA y construcción del modelo
-            datos = df[["tipo_cafe", atr]].dropna().copy()
-            if datos["tipo_cafe"].nunique() < 2:
-                st.info("No hay suficientes grupos para este atributo.")
-                st.markdown("---")
-                continue
-
-            # Modelo OLS y tabla ANOVA
-            try:
-                modelo = ols(f"`{atr}` ~ C(tipo_cafe)", data=datos).fit()
-                tabla_anova = sm.stats.anova_lm(modelo, typ=2)
-            except Exception as e:
-                st.error(f"No se pudo ajustar el modelo para {atr}: {e}")
-                st.markdown("---")
-                continue
-
-            st.dataframe(tabla_anova, use_container_width=True)
-
-            # p-valor del factor
-            try:
-                pval = float(tabla_anova.loc["C(tipo_cafe)", "PR(>F)"])
-            except Exception:
-                pval = np.nan
-
-            # Tamaño del efecto (eta cuadrado)
-            eta2 = _eta_cuadrado(tabla_anova)
-
-            # Diagnósticos rápidos
-            residuos = modelo.resid
-            # Levene por grupos (homogeneidad)
-            grupos_valores = [g[atr].dropna().values for _, g in datos.groupby("tipo_cafe")]
-            p_levene = np.nan
-            if all(len(g) >= 2 for g in grupos_valores) and len(grupos_valores) >= 2:
-                try:
-                    _, p_levene = stats.levene(*grupos_valores, center="median")
-                except Exception as e:
-                    print(f"[DEBUG] Levene falló: {e}")
-
-            p_shapiro = np.nan
-            try:
-                if len(residuos) >= 3 and len(residuos) <= 5000:
-                    _, p_shapiro = stats.shapiro(residuos)
-            except Exception as e:
-                print(f"[DEBUG] Shapiro falló: {e}")
-
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("p (ANOVA)", f"{pval:.4f}" if np.isfinite(pval) else "NA")
-            with col2:
-                st.metric("η² (tamaño de efecto)", f"{eta2:.3f}" if np.isfinite(eta2) else "NA")
-            with col3:
-                estado = []
-                if np.isfinite(p_shapiro):
-                    estado.append(f"Shapiro p={p_shapiro:.3f}")
-                if np.isfinite(p_levene):
-                    estado.append(f"Levene p={p_levene:.3f}")
-                st.metric("Supuestos (resumen)", " · ".join(estado) if estado else "NA")
-
-            # Mensaje interpretativo
-            if np.isfinite(pval):
-                if pval < 0.05:
-                    st.success(
-                        f"p = {pval:.4f} → hay diferencias **significativas** entre marcas para **{atr}**. "
-                        f"η² ≈ {eta2:.3f}."
-                    )
-                else:
-                    st.info(
-                        f"p = {pval:.4f} → no se detectan diferencias significativas entre marcas para **{atr}**. "
-                        f"η² ≈ {eta2:.3f}."
-                    )
-
-            # Post-hoc: Tukey HSD (recomendable cuando Levene no rechaza; si Levene < .05, preferible Games-Howell)
-            if np.isfinite(pval) and pval < 0.05 and np.isfinite(p_levene) and p_levene >= 0.05 and datos["tipo_cafe"].nunique() > 2:
-                with st.expander("Comparaciones post-hoc (Tukey HSD)"):
-                    try:
-                        tuk = pairwise_tukeyhsd(endog=datos[atr].values,
-                                                groups=datos["tipo_cafe"].values,
-                                                alpha=0.05)
-                        # Convertir a DataFrame para visualizar cómodo
-                        tuk_df = pd.DataFrame(data=tuk._results_table.data[1:], columns=tuk._results_table.data[0])
-                        st.dataframe(tuk_df, use_container_width=True)
-                    except Exception as e:
-                        st.warning(f"No se pudo calcular Tukey HSD: {e}")
-
-            st.markdown("---")
-            print(f"[DEBUG] ANOVA {atr}: p={pval}, eta2={eta2}, shapiro_p={p_shapiro}, levene_p={p_levene}")
-    
-
-        # -----------------------------------
-        # 4) Render functions por tab
-        # -----------------------------------
-        def render_supuestos():
-            st.markdown("###  Pruebas de supuestos")
-            for atributo in ATR:
-                grupos = [g[atributo].dropna() for _, g in df.groupby("tipo_cafe")]
-                if all(len(g) > 2 for g in grupos) and len(grupos) >= 2:
-                    stat_lev, p_lev = levene(*grupos)
-                    stat_sh, p_sh = shapiro(df[atributo].dropna())
-                    st.write(f"**{atributo.capitalize()}** — Levene p = {p_lev:.3f}, Shapiro p = {p_sh:.3f}")
-                else:
-                    st.info(f"No hay suficientes datos para {atributo}.")
-            st.markdown("---")
-
-        # Computa tabla Welch (se usa en 2 tabs)
-        def _calcular_resultados_welch() -> pd.DataFrame:
-            resultados = []
-            for atributo in ATR:
-                for i in range(len(marcas_disponibles)):
-                    for j in range(i + 1, len(marcas_disponibles)):
-                        marca_a, marca_b = marcas_disponibles[i], marcas_disponibles[j]
-                        A = df.loc[df["tipo_cafe"] == marca_a, atributo].dropna().values
-                        B = df.loc[df["tipo_cafe"] == marca_b, atributo].dropna().values
-                        if len(A) < 2 or len(B) < 2:
-                            continue
-                        tval, pval = stats.ttest_ind(A, B, equal_var=False, nan_policy="omit")
-                        diff, ci, dfw, se = welch_ci(A, B)
-                        g = hedges_g_ind(A, B)
-                        resultados.append({
-                            "Atributo sensorial": atributo,
-                            "Café A": marca_a,
-                            "Café B": marca_b,
-                            "Participantes (A)": int(len(A)),
-                            "Participantes (B)": int(len(B)),
-                            "Diferencia de medias (A−B)": float(diff),
-                            "IC 95 % inferior": float(ci[0]),
-                            "IC 95 % superior": float(ci[1]),
-                            "Estadístico t": float(tval),
-                            "gl": float(dfw),
-                            "p-valor": float(pval),
-                            "Tamaño del efecto (Hedges g)": float(g),
-                        })
-            if not resultados:
-                return pd.DataFrame()
-            tabla = pd.DataFrame(resultados)
-
-            # Holm por atributo (usando nombre legible)
-            tablas = []
-            for atributo, sub in tabla.groupby("Atributo sensorial", as_index=False):
-                sub = sub.copy()
-                pvals = sub["p-valor"].values
-                ajust = holm(pvals)
-                sub["p-valor ajustado (Holm)"] = ajust
-                sub["Significativo (α = 0.05)"] = sub["p-valor ajustado (Holm)"] < 0.05
-                tablas.append(sub)
-
-            tabla_final = pd.concat(tablas, ignore_index=True).sort_values(
-                ["Atributo sensorial", "p-valor ajustado (Holm)", "p-valor"]
-            )
-            print(f"[DEBUG] filas_tabla_welch={len(tabla_final)}")
-            return tabla_final
-
-        # Caché simple en sesión para reutilizar en "Interpretación"
-        if "tabla_welch_cache" not in st.session_state:
-            st.session_state["tabla_welch_cache"] = None
-
-        def render_resultados_welch():
-            st.subheader("Resultados (resumen)")
-            tabla_welch = _calcular_resultados_welch()
-            st.session_state["tabla_welch_cache"] = tabla_welch
-
-            if tabla_welch.empty:
-                st.info("No hay comparaciones posibles con la configuración actual.")
-                return
-
-            cols_entre = [
-                "Atributo sensorial", "Café A", "Café B",
-                "Participantes (A)", "Participantes (B)",
-                "Diferencia de medias (A−B)", "IC 95 % inferior", "IC 95 % superior",
-                "Estadístico t", "gl", "p-valor",
-                "p-valor ajustado (Holm)", "Significativo (α = 0.05)",
-                "Tamaño del efecto (Hedges g)"
-            ]
-
-            st.dataframe(tabla_welch[cols_entre], use_container_width=True)
-            st.markdown("---")
-
-        def render_interpretacion():
-            st.subheader("Interpretación")
-
-            # Usar caché si existe, si no recalcular
-            tabla = st.session_state.get("tabla_welch_cache")
-            if tabla is None or (isinstance(tabla, pd.DataFrame) and tabla.empty):
-                tabla = _calcular_resultados_welch()
-                st.session_state["tabla_welch_cache"] = tabla
-
-            if tabla.empty:
-                st.info("No hay resultados para interpretar.")
-                return
-
-            atributo_seleccionado = st.selectbox("Atributo", ATR, index=0, key="atr_interp")
-            sig = (
-                tabla[
-                    (tabla["Atributo sensorial"] == atributo_seleccionado) &
-                    (tabla["p-valor ajustado (Holm)"] < 0.05)
-                ]
-                .copy()
-                .sort_values("p-valor ajustado (Holm)")
-            )
-
-            st.markdown("**✅ Diferencias significativas (Holm < 0.05)**")
-            if sig.empty:
-                st.info("No se detectaron diferencias significativas para este atributo.")
+    # -----------------------------------
+    # 4) Render functions por tab
+    # -----------------------------------
+    def render_supuestos():
+        st.markdown("###  Pruebas de supuestos")
+        for atributo in ATR:
+            grupos = [g[atributo].dropna() for _, g in df.groupby("tipo_cafe")]
+            if all(len(g) > 2 for g in grupos) and len(grupos) >= 2:
+                stat_lev, p_lev = levene(*grupos)
+                stat_sh, p_sh = shapiro(df[atributo].dropna())
+                st.write(f"**{atributo.capitalize()}** — Levene p = {p_lev:.3f}, Shapiro p = {p_sh:.3f}")
             else:
-                for _, r in sig.iterrows():
-                    a, b = r["Café A"], r["Café B"]
-                    diff = r["Diferencia de medias (A−B)"]
-                    ci_lo, ci_hi = r["IC 95 % inferior"], r["IC 95 % superior"]
-                    p_adj = r["p-valor ajustado (Holm)"]
+                st.info(f"No hay suficientes datos para {atributo}.")
+        st.markdown("---")
 
-                    na = a.replace("_", " ")
-                    nb = b.replace("_", " ")
-
-                    if diff > 0:
-                        comparacion = f"**{na} obtuvo en promedio {abs(diff):.2f} puntos más que {nb}**."
-                    elif diff < 0:
-                        comparacion = f"**{na} obtuvo en promedio {abs(diff):.2f} puntos menos que {nb}**."
-                    else:
-                        comparacion = f"**{na} y {nb} obtuvieron promedios iguales**."
-
-                    st.markdown(
-                        f"{comparacion} "
-                        f"Esto significa que la diferencia observada entre ambos cafés es de **{abs(diff):.2f} puntos**.\n\n"
-                        f"El intervalo de confianza al 95 % va de **{ci_lo:.2f}** a **{ci_hi:.2f}**, "
-                        f"lo que indica que, si repitiésemos el experimento muchas veces, "
-                        f"la verdadera diferencia estaría probablemente dentro de ese rango.\n\n"
-                        f"El valor de **p(Holm) = {p_adj:.4f}**, "
-                        f"que corrige por las múltiples comparaciones, sugiere que esta diferencia "
-                        f"{'es **estadísticamente significativa** (p < 0.05)' if p_adj < 0.05 else 'no es significativa (p ≥ 0.05)'}."
-                    )
-            st.markdown("---")
-
-        def render_por_sexo():
-            st.markdown("###  Comparaciones por sexo")
-
-            # --- Explicación de la sección Comparaciones por sexo ---
-            st.markdown("####  Cómo leer resultados a continuación:")
-            st.markdown("""
-            - Cada línea compara **hombres vs mujeres** para un **atributo** dentro de una **marca**.
-            - **t** indica magnitud y dirección (signo): negativo → promedio H < M; positivo → H > M (según orden interno).
-            - **p** es la evidencia estadística: si **p < 0.05**, la diferencia se considera **significativa**.
-            - Si **p ≥ 0.05**, no hay evidencia suficiente de diferencia entre sexos para esa marca/atributo.
-            - Recordar: escalas Likert son ordinales; tratarlas como intervalares es una aproximación habitual.
-            """)
-            st.markdown("#### Resultados:   ")
-
-            # Ejecutar comparaciones H vs F por marca y atributo
-            for atributo in ATR:
-                for cafe in df["tipo_cafe"].dropna().unique():
-                    sub = df[df["tipo_cafe"] == cafe]
-                    if "sexo" not in sub.columns:
+    # Computa tabla Welch (se usa en 2 tabs)
+    def _calcular_resultados_welch() -> pd.DataFrame:
+        resultados = []
+        for atributo in ATR:
+            for i in range(len(marcas_disponibles)):
+                for j in range(i + 1, len(marcas_disponibles)):
+                    marca_a, marca_b = marcas_disponibles[i], marcas_disponibles[j]
+                    A = df.loc[df["tipo_cafe"] == marca_a, atributo].dropna().values
+                    B = df.loc[df["tipo_cafe"] == marca_b, atributo].dropna().values
+                    if len(A) < 2 or len(B) < 2:
                         continue
-                    # normalizar strings H/F
-                    sexo_series = sub["sexo"].astype(str).str.upper()
-                    gM = sub[sexo_series == "M"][atributo].dropna()
-                    gF = sub[sexo_series == "F"][atributo].dropna()
-                    if len(gM) > 2 and len(gF) > 2:
-                        tval, pval = stats.ttest_ind(gM, gF, equal_var=False)
-                        st.write(f"{atributo.capitalize()} ({cafe}) → t = {tval:.2f}, p = {pval:.3f}")
+                    tval, pval = stats.ttest_ind(A, B, equal_var=False, nan_policy="omit")
+                    diff, ci, dfw, se = welch_ci(A, B)
+                    g = hedges_g_ind(A, B)
+                    resultados.append({
+                        "Atributo sensorial": atributo,
+                        "Café A": marca_a,
+                        "Café B": marca_b,
+                        "Participantes (A)": int(len(A)),
+                        "Participantes (B)": int(len(B)),
+                        "Diferencia de medias (A−B)": float(diff),
+                        "IC 95 % inferior": float(ci[0]),
+                        "IC 95 % superior": float(ci[1]),
+                        "Estadístico t": float(tval),
+                        "gl": float(dfw),
+                        "p-valor": float(pval),
+                        "Tamaño del efecto (Hedges g)": float(g),
+                    })
+        if not resultados:
+            return pd.DataFrame()
+        tabla = pd.DataFrame(resultados)
 
-            st.markdown("---")
+        # Holm por atributo (usando nombre legible)
+        tablas = []
+        for atributo, sub in tabla.groupby("Atributo sensorial", as_index=False):
+            sub = sub.copy()
+            pvals = sub["p-valor"].values
+            ajust = holm(pvals)
+            sub["p-valor ajustado (Holm)"] = ajust
+            sub["Significativo (α = 0.05)"] = sub["p-valor ajustado (Holm)"] < 0.05
+            tablas.append(sub)
+
+        tabla_final = pd.concat(tablas, ignore_index=True).sort_values(
+            ["Atributo sensorial", "p-valor ajustado (Holm)", "p-valor"]
+        )
+        print(f"[DEBUG] filas_tabla_welch={len(tabla_final)}")
+        return tabla_final
+
+    # Caché simple en sesión para reutilizar en "Interpretación"
+    if "tabla_welch_cache" not in st.session_state:
+        st.session_state["tabla_welch_cache"] = None
+
+    def render_resultados_welch():
+        st.subheader("Resultados (resumen)")
+        tabla_welch = _calcular_resultados_welch()
+        st.session_state["tabla_welch_cache"] = tabla_welch
+
+        if tabla_welch.empty:
+            st.info("No hay comparaciones posibles con la configuración actual.")
+            return
+
+        cols_entre = [
+            "Atributo sensorial", "Café A", "Café B",
+            "Participantes (A)", "Participantes (B)",
+            "Diferencia de medias (A−B)", "IC 95 % inferior", "IC 95 % superior",
+            "Estadístico t", "gl", "p-valor",
+            "p-valor ajustado (Holm)", "Significativo (α = 0.05)",
+            "Tamaño del efecto (Hedges g)"
+        ]
+
+        st.dataframe(tabla_welch[cols_entre], use_container_width=True)
+        st.markdown("---")
+
+    def render_interpretacion():
+        st.subheader("Interpretación")
+
+        # Usar caché si existe, si no recalcular
+        tabla = st.session_state.get("tabla_welch_cache")
+        if tabla is None or (isinstance(tabla, pd.DataFrame) and tabla.empty):
+            tabla = _calcular_resultados_welch()
+            st.session_state["tabla_welch_cache"] = tabla
+
+        if tabla.empty:
+            st.info("No hay resultados para interpretar.")
+            return
+
+        atributo_seleccionado = st.selectbox("Atributo", ATR, index=0, key="atr_interp")
+        sig = (
+            tabla[
+                (tabla["Atributo sensorial"] == atributo_seleccionado) &
+                (tabla["p-valor ajustado (Holm)"] < 0.05)
+            ]
+            .copy()
+            .sort_values("p-valor ajustado (Holm)")
+        )
+
+        st.markdown("**✅ Diferencias significativas (Holm < 0.05)**")
+        if sig.empty:
+            st.info("No se detectaron diferencias significativas para este atributo.")
+        else:
+            for _, r in sig.iterrows():
+                a, b = r["Café A"], r["Café B"]
+                diff = r["Diferencia de medias (A−B)"]
+                ci_lo, ci_hi = r["IC 95 % inferior"], r["IC 95 % superior"]
+                p_adj = r["p-valor ajustado (Holm)"]
+
+                na = a.replace("_", " ")
+                nb = b.replace("_", " ")
+
+                if diff > 0:
+                    comparacion = f"**{na} obtuvo en promedio {abs(diff):.2f} puntos más que {nb}**."
+                elif diff < 0:
+                    comparacion = f"**{na} obtuvo en promedio {abs(diff):.2f} puntos menos que {nb}**."
+                else:
+                    comparacion = f"**{na} y {nb} obtuvieron promedios iguales**."
+
+                st.markdown(
+                    f"{comparacion} "
+                    f"Esto significa que la diferencia observada entre ambos cafés es de **{abs(diff):.2f} puntos**.\n\n"
+                    f"El intervalo de confianza al 95 % va de **{ci_lo:.2f}** a **{ci_hi:.2f}**, "
+                    f"lo que indica que, si repitiésemos el experimento muchas veces, "
+                    f"la verdadera diferencia estaría probablemente dentro de ese rango.\n\n"
+                    f"El valor de **p(Holm) = {p_adj:.4f}**, "
+                    f"que corrige por las múltiples comparaciones, sugiere que esta diferencia "
+                    f"{'es **estadísticamente significativa** (p < 0.05)' if p_adj < 0.05 else 'no es significativa (p ≥ 0.05)'}."
+                )
+        st.markdown("---")
+
+    def render_por_sexo():
+        st.markdown("###  Comparaciones por sexo")
+
+        # --- Explicación de la sección Comparaciones por sexo ---
+        st.markdown("####  Cómo leer resultados a continuación:")
+        st.markdown("""
+        - Cada línea compara **hombres vs mujeres** para un **atributo** dentro de una **marca**.
+        - **t** indica magnitud y dirección (signo): negativo → promedio H < M; positivo → H > M (según orden interno).
+        - **p** es la evidencia estadística: si **p < 0.05**, la diferencia se considera **significativa**.
+        - Si **p ≥ 0.05**, no hay evidencia suficiente de diferencia entre sexos para esa marca/atributo.
+        - Recordar: escalas Likert son ordinales; tratarlas como intervalares es una aproximación habitual.
+        """)
+        st.markdown("#### Resultados:   ")
+
+        # Ejecutar comparaciones H vs F por marca y atributo
+        for atributo in ATR:
+            for cafe in df["tipo_cafe"].dropna().unique():
+                sub = df[df["tipo_cafe"] == cafe]
+                if "sexo" not in sub.columns:
+                    continue
+                # normalizar strings H/F
+                sexo_series = sub["sexo"].astype(str).str.upper()
+                gM = sub[sexo_series == "M"][atributo].dropna()
+                gF = sub[sexo_series == "F"][atributo].dropna()
+                if len(gM) > 2 and len(gF) > 2:
+                    tval, pval = stats.ttest_ind(gM, gF, equal_var=False)
+                    st.write(f"{atributo.capitalize()} ({cafe}) → t = {tval:.2f}, p = {pval:.3f}")
+
+        st.markdown("---")
 
     # -----------------------------------
     # 5) Render dinámico por tabs válidos

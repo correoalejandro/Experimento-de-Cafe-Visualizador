@@ -434,26 +434,6 @@ elif pagina == " Pruebas":
     # 2) Registrar tabs que sí se pueden
     # -----------------------------------
     tabs_definicion = []
-        # (A) Pruebas de supuestos: requiere atributos y algún dato
-    if tiene_tipo_cafe and tiene_atributos:
-        tabs_definicion.append(("Pruebas de supuestos", "render_supuestos"))
-
-    # (ANOVA de un factor)
-    if tiene_tipo_cafe and tiene_atributos and hay_al_menos_dos_marcas:
-        tabs_definicion.append(("ANOVA de un factor", "render_anova_un_factor"))
-
-    # (B) Resultados Welch + Tabla (requiere ≥ 2 marcas y atributos)
-    if tiene_tipo_cafe and tiene_atributos and hay_al_menos_dos_marcas:
-        tabs_definicion.append(("Resultados (Welch)", "render_resultados_welch"))
-
-    # (C) Interpretación
-    if tiene_tipo_cafe and tiene_atributos and hay_al_menos_dos_marcas:
-        tabs_definicion.append(("Interpretación", "render_interpretacion"))
-
-    # (D) Comparaciones por sexo
-    if tiene_tipo_cafe and tiene_atributos and tiene_sexo:
-        tabs_definicion.append(("Comparaciones por sexo", "render_por_sexo"))
-
 
     # (A) Pruebas de supuestos: requiere atributos y algún dato
     if tiene_tipo_cafe and tiene_atributos:
@@ -473,7 +453,7 @@ elif pagina == " Pruebas":
         tabs_definicion.append(("Comparaciones por sexo", "render_por_sexo"))
 
 
-        
+
 
 
     print(f"[DEBUG] tabs_definicion={tabs_definicion}")
@@ -537,152 +517,152 @@ elif pagina == " Pruebas":
 
         #########
         import numpy as np
-        import pandas as pd
-        import streamlit as st
-        from scipy import stats
-        import statsmodels.api as sm
-        from statsmodels.formula.api import ols
-        from statsmodels.stats.multicomp import pairwise_tukeyhsd
+    import pandas as pd
+    import streamlit as st
+    from scipy import stats
+    import statsmodels.api as sm
+    from statsmodels.formula.api import ols
+    from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
-        def _eta_cuadrado(tabla_anova: pd.DataFrame) -> float:
-            # Para typ=2: SS entre = suma de SS de los factores (aquí solo C(tipo_cafe))
-            # SS total = SS entre + SS residuo
+    def _eta_cuadrado(tabla_anova: pd.DataFrame) -> float:
+        # Para typ=2: SS entre = suma de SS de los factores (aquí solo C(tipo_cafe))
+        # SS total = SS entre + SS residuo
+        try:
+            ss_entre = float(tabla_anova.loc["C(tipo_cafe)", "sum_sq"])
+            ss_res = float(tabla_anova.loc["Residual", "sum_sq"])
+            eta2 = ss_entre / (ss_entre + ss_res) if (ss_entre + ss_res) > 0 else np.nan
+            return eta2
+        except Exception as e:
+            print(f"[DEBUG] _eta_cuadrado falló: {e}")
+            return np.nan
+
+    def _diagnosticos_basicos(residuos: np.ndarray, grupos_series: pd.Series):
+        # Normalidad de residuos (Shapiro) y homogeneidad de varianzas (Levene)
+        p_shapiro = np.nan
+        p_levene = np.nan
+        try:
+            if len(residuos) >= 3 and len(residuos) <= 5000:
+                _, p_shapiro = stats.shapiro(residuos)
+        except Exception as e:
+            print(f"[DEBUG] Shapiro falló: {e}")
+
+        try:
+            grupos = [g.dropna().values for _, g in grupos_series.groupby(grupos_series.index)]
+            # el grouping anterior no separa por marca; rearmamos por categoría:
+            grupos = []
+            for nombre, sub in grupos_series.groupby(grupos_series):
+                grupos.append(sub.index)
+            # Más directo: construir listas de valores por marca usando el índice original
+            # (este bloque se remplaza por una versión clara usando el DataFrame)
+        except Exception:
+            pass  # lo hacemos de forma robusta abajo con el DataFrame original
+
+        return p_shapiro, p_levene  # p_levene lo calculamos dentro del render (necesita los grupos)
+
+    def render_anova_un_factor(df: pd.DataFrame, atributos: list[str]):
+        st.markdown("### 📈 ANOVA de un factor (marca de café)")
+
+        if "tipo_cafe" not in df.columns:
+            st.warning("No encuentro la columna 'tipo_cafe'.")
+            return
+
+        marcas = [m for m in df["tipo_cafe"].dropna().unique() if str(m).strip() != ""]
+        if len(marcas) < 2:
+            st.info("Se requieren al menos dos marcas para ANOVA.")
+            return
+
+        for atr in atributos:
+            if atr not in df.columns:
+                continue
+
+            st.write(f"#### Atributo: {atr.capitalize()}")
+
+            # Filtrado de NA y construcción del modelo
+            datos = df[["tipo_cafe", atr]].dropna().copy()
+            if datos["tipo_cafe"].nunique() < 2:
+                st.info("No hay suficientes grupos para este atributo.")
+                st.markdown("---")
+                continue
+
+            # Modelo OLS y tabla ANOVA
             try:
-                ss_entre = float(tabla_anova.loc["C(tipo_cafe)", "sum_sq"])
-                ss_res = float(tabla_anova.loc["Residual", "sum_sq"])
-                eta2 = ss_entre / (ss_entre + ss_res) if (ss_entre + ss_res) > 0 else np.nan
-                return eta2
+                modelo = ols(f"`{atr}` ~ C(tipo_cafe)", data=datos).fit()
+                tabla_anova = sm.stats.anova_lm(modelo, typ=2)
             except Exception as e:
-                print(f"[DEBUG] _eta_cuadrado falló: {e}")
-                return np.nan
+                st.error(f"No se pudo ajustar el modelo para {atr}: {e}")
+                st.markdown("---")
+                continue
 
-        def _diagnosticos_basicos(residuos: np.ndarray, grupos_series: pd.Series):
-            # Normalidad de residuos (Shapiro) y homogeneidad de varianzas (Levene)
-            p_shapiro = np.nan
+            st.dataframe(tabla_anova, use_container_width=True)
+
+            # p-valor del factor
+            try:
+                pval = float(tabla_anova.loc["C(tipo_cafe)", "PR(>F)"])
+            except Exception:
+                pval = np.nan
+
+            # Tamaño del efecto (eta cuadrado)
+            eta2 = _eta_cuadrado(tabla_anova)
+
+            # Diagnósticos rápidos
+            residuos = modelo.resid
+            # Levene por grupos (homogeneidad)
+            grupos_valores = [g[atr].dropna().values for _, g in datos.groupby("tipo_cafe")]
             p_levene = np.nan
+            if all(len(g) >= 2 for g in grupos_valores) and len(grupos_valores) >= 2:
+                try:
+                    _, p_levene = stats.levene(*grupos_valores, center="median")
+                except Exception as e:
+                    print(f"[DEBUG] Levene falló: {e}")
+
+            p_shapiro = np.nan
             try:
                 if len(residuos) >= 3 and len(residuos) <= 5000:
                     _, p_shapiro = stats.shapiro(residuos)
             except Exception as e:
                 print(f"[DEBUG] Shapiro falló: {e}")
 
-            try:
-                grupos = [g.dropna().values for _, g in grupos_series.groupby(grupos_series.index)]
-                # el grouping anterior no separa por marca; rearmamos por categoría:
-                grupos = []
-                for nombre, sub in grupos_series.groupby(grupos_series):
-                    grupos.append(sub.index)
-                # Más directo: construir listas de valores por marca usando el índice original
-                # (este bloque se remplaza por una versión clara usando el DataFrame)
-            except Exception:
-                pass  # lo hacemos de forma robusta abajo con el DataFrame original
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("p (ANOVA)", f"{pval:.4f}" if np.isfinite(pval) else "NA")
+            with col2:
+                st.metric("η² (tamaño de efecto)", f"{eta2:.3f}" if np.isfinite(eta2) else "NA")
+            with col3:
+                estado = []
+                if np.isfinite(p_shapiro):
+                    estado.append(f"Shapiro p={p_shapiro:.3f}")
+                if np.isfinite(p_levene):
+                    estado.append(f"Levene p={p_levene:.3f}")
+                st.metric("Supuestos (resumen)", " · ".join(estado) if estado else "NA")
 
-            return p_shapiro, p_levene  # p_levene lo calculamos dentro del render (necesita los grupos)
+            # Mensaje interpretativo
+            if np.isfinite(pval):
+                if pval < 0.05:
+                    st.success(
+                        f"p = {pval:.4f} → hay diferencias **significativas** entre marcas para **{atr}**. "
+                        f"η² ≈ {eta2:.3f}."
+                    )
+                else:
+                    st.info(
+                        f"p = {pval:.4f} → no se detectan diferencias significativas entre marcas para **{atr}**. "
+                        f"η² ≈ {eta2:.3f}."
+                    )
 
-        def render_anova_un_factor(df: pd.DataFrame, atributos: list[str]):
-            st.markdown("### 📈 ANOVA de un factor (marca de café)")
-
-            if "tipo_cafe" not in df.columns:
-                st.warning("No encuentro la columna 'tipo_cafe'.")
-                return
-
-            marcas = [m for m in df["tipo_cafe"].dropna().unique() if str(m).strip() != ""]
-            if len(marcas) < 2:
-                st.info("Se requieren al menos dos marcas para ANOVA.")
-                return
-
-            for atr in atributos:
-                if atr not in df.columns:
-                    continue
-
-                st.write(f"#### Atributo: {atr.capitalize()}")
-
-                # Filtrado de NA y construcción del modelo
-                datos = df[["tipo_cafe", atr]].dropna().copy()
-                if datos["tipo_cafe"].nunique() < 2:
-                    st.info("No hay suficientes grupos para este atributo.")
-                    st.markdown("---")
-                    continue
-
-                # Modelo OLS y tabla ANOVA
-                try:
-                    modelo = ols(f"`{atr}` ~ C(tipo_cafe)", data=datos).fit()
-                    tabla_anova = sm.stats.anova_lm(modelo, typ=2)
-                except Exception as e:
-                    st.error(f"No se pudo ajustar el modelo para {atr}: {e}")
-                    st.markdown("---")
-                    continue
-
-                st.dataframe(tabla_anova, use_container_width=True)
-
-                # p-valor del factor
-                try:
-                    pval = float(tabla_anova.loc["C(tipo_cafe)", "PR(>F)"])
-                except Exception:
-                    pval = np.nan
-
-                # Tamaño del efecto (eta cuadrado)
-                eta2 = _eta_cuadrado(tabla_anova)
-
-                # Diagnósticos rápidos
-                residuos = modelo.resid
-                # Levene por grupos (homogeneidad)
-                grupos_valores = [g[atr].dropna().values for _, g in datos.groupby("tipo_cafe")]
-                p_levene = np.nan
-                if all(len(g) >= 2 for g in grupos_valores) and len(grupos_valores) >= 2:
+            # Post-hoc: Tukey HSD (recomendable cuando Levene no rechaza; si Levene < .05, preferible Games-Howell)
+            if np.isfinite(pval) and pval < 0.05 and np.isfinite(p_levene) and p_levene >= 0.05 and datos["tipo_cafe"].nunique() > 2:
+                with st.expander("Comparaciones post-hoc (Tukey HSD)"):
                     try:
-                        _, p_levene = stats.levene(*grupos_valores, center="median")
+                        tuk = pairwise_tukeyhsd(endog=datos[atr].values,
+                                                groups=datos["tipo_cafe"].values,
+                                                alpha=0.05)
+                        # Convertir a DataFrame para visualizar cómodo
+                        tuk_df = pd.DataFrame(data=tuk._results_table.data[1:], columns=tuk._results_table.data[0])
+                        st.dataframe(tuk_df, use_container_width=True)
                     except Exception as e:
-                        print(f"[DEBUG] Levene falló: {e}")
+                        st.warning(f"No se pudo calcular Tukey HSD: {e}")
 
-                p_shapiro = np.nan
-                try:
-                    if len(residuos) >= 3 and len(residuos) <= 5000:
-                        _, p_shapiro = stats.shapiro(residuos)
-                except Exception as e:
-                    print(f"[DEBUG] Shapiro falló: {e}")
-
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("p (ANOVA)", f"{pval:.4f}" if np.isfinite(pval) else "NA")
-                with col2:
-                    st.metric("η² (tamaño de efecto)", f"{eta2:.3f}" if np.isfinite(eta2) else "NA")
-                with col3:
-                    estado = []
-                    if np.isfinite(p_shapiro):
-                        estado.append(f"Shapiro p={p_shapiro:.3f}")
-                    if np.isfinite(p_levene):
-                        estado.append(f"Levene p={p_levene:.3f}")
-                    st.metric("Supuestos (resumen)", " · ".join(estado) if estado else "NA")
-
-                # Mensaje interpretativo
-                if np.isfinite(pval):
-                    if pval < 0.05:
-                        st.success(
-                            f"p = {pval:.4f} → hay diferencias **significativas** entre marcas para **{atr}**. "
-                            f"η² ≈ {eta2:.3f}."
-                        )
-                    else:
-                        st.info(
-                            f"p = {pval:.4f} → no se detectan diferencias significativas entre marcas para **{atr}**. "
-                            f"η² ≈ {eta2:.3f}."
-                        )
-
-                # Post-hoc: Tukey HSD (recomendable cuando Levene no rechaza; si Levene < .05, preferible Games-Howell)
-                if np.isfinite(pval) and pval < 0.05 and np.isfinite(p_levene) and p_levene >= 0.05 and datos["tipo_cafe"].nunique() > 2:
-                    with st.expander("Comparaciones post-hoc (Tukey HSD)"):
-                        try:
-                            tuk = pairwise_tukeyhsd(endog=datos[atr].values,
-                                                    groups=datos["tipo_cafe"].values,
-                                                    alpha=0.05)
-                            # Convertir a DataFrame para visualizar cómodo
-                            tuk_df = pd.DataFrame(data=tuk._results_table.data[1:], columns=tuk._results_table.data[0])
-                            st.dataframe(tuk_df, use_container_width=True)
-                        except Exception as e:
-                            st.warning(f"No se pudo calcular Tukey HSD: {e}")
-
-                st.markdown("---")
-                print(f"[DEBUG] ANOVA {atr}: p={pval}, eta2={eta2}, shapiro_p={p_shapiro}, levene_p={p_levene}")
+            st.markdown("---")
+            print(f"[DEBUG] ANOVA {atr}: p={pval}, eta2={eta2}, shapiro_p={p_shapiro}, levene_p={p_levene}")
     
 
         # -----------------------------------
@@ -869,10 +849,6 @@ elif pagina == " Pruebas":
         with tabs[idx]:
             if funcion_id == "render_supuestos":
                 render_supuestos()
-            elif funcion_id == "render_anova_un_factor":
-                # Usa los atributos seleccionados en la UI (ATR)
-                print("[DEBUG] Entrando en render_anova_un_factor con atributos:", ATR)
-                render_anova_un_factor(df, ATR)
             elif funcion_id == "render_resultados_welch":
                 render_resultados_welch()
             elif funcion_id == "render_interpretacion":
